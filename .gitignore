@@ -1,0 +1,13 @@
+# Original recordings (large, never committed)
+sources/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Node (only if a tool ever needs it; the app itself has no build step)
+node_modules/
+
+# macOS
+.DS_Store
