@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>שישה נכסים — המיקסר שלי</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;500;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <h1>שישה נכסים · המיקסר שלי</h1>
+  <span class="hint">גררו כל ערוץ למעלה או למטה</span>
+</header>
+<main>
+  <div class="board" id="board"></div>
+  <div class="status" id="status"></div>
+</main>
+<div class="master"><span>עוצמה כללית</span><input id="master" type="range" min="0" max="100" value="80" aria-label="עוצמה כללית"></div>
+<footer>
+  <button class="play" id="play" aria-pressed="false">נגן</button>
+  <div class="tools">
+    <button class="tool" id="profileBtn">התמונה שלי</button>
+  </div>
+</footer>
+
+<dialog id="picker">
+  <h2 id="pickerTitle"></h2>
+  <p id="pickerDesc"></p>
+  <div class="choices" id="choices"></div>
+  <button class="close" id="pickerClose">סגור</button>
+</dialog>
+
+<dialog id="profileDlg">
+  <div class="profile">
+    <h2>ככה זה נשמע אצלי</h2>
+    <div id="chart"></div>
+    <p id="profileText"></p>
+    <button class="tool" id="copyBtn">העתק כטקסט</button>
+    <button class="close" id="profileClose">סגור</button>
+  </div>
+</dialog>
+
+<script src="profile.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

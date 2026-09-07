@@ -1,0 +1,62 @@
+{
+  "tempo": 100,
+  "key": "A minor",
+  "bars": 4,
+  "beats_per_bar": 4,
+  "assets": [
+    {
+      "id": "hebrew",
+      "name": "השפה העברית",
+      "color": "#f2c14e",
+      "description": "איך העברית נשמעת אצלך — שפת אם, שפה נלמדת, שפה של תפילה.",
+      "clips": [
+        { "id": "hebrew-01", "title": "דוגמה · מנגינה", "note": "", "file": "clips/hebrew-01.wav", "source": "prototype-synth", "credit": "צליל מסונתז, ממלא מקום" }
+      ]
+    },
+    {
+      "id": "israel",
+      "name": "ישראל",
+      "color": "#4fb3e8",
+      "description": "המקום, הנוף, הריח של הארץ.",
+      "clips": [
+        { "id": "israel-01", "title": "דוגמה · בס", "note": "", "file": "clips/israel-01.wav", "source": "prototype-synth", "credit": "צליל מסונתז, ממלא מקום" }
+      ]
+    },
+    {
+      "id": "values",
+      "name": "עולם ערכים",
+      "color": "#8fd18a",
+      "description": "מה מכוון אותך — צדק, חסד, אחריות, קהילה.",
+      "clips": [
+        { "id": "values-01", "title": "דוגמה · כלי מיתר", "note": "", "file": "clips/values-01.wav", "source": "prototype-synth", "credit": "צליל מסונתז, ממלא מקום" }
+      ]
+    },
+    {
+      "id": "culture",
+      "name": "תרבות",
+      "color": "#e8865f",
+      "description": "ספרים, מוזיקה, הומור, שיחה סביב השולחן.",
+      "clips": [
+        { "id": "culture-01", "title": "דוגמה · ארפג׳יו", "note": "", "file": "clips/culture-01.wav", "source": "prototype-synth", "credit": "צליל מסונתז, ממלא מקום" }
+      ]
+    },
+    {
+      "id": "memory",
+      "name": "זיכרון היסטורי",
+      "color": "#c79ae6",
+      "description": "מה מהעבר חי בך — סיפורים, ימי זיכרון, השם של סבתא.",
+      "clips": [
+        { "id": "memory-01", "title": "דוגמה · כלי הקשה", "note": "", "file": "clips/memory-01.wav", "source": "prototype-synth", "credit": "צליל מסונתז, ממלא מקום" }
+      ]
+    },
+    {
+      "id": "lifestyle",
+      "name": "אורח חיים",
+      "color": "#f0f0f0",
+      "description": "שבת, חגים, כשרות, מנהגים — במידה שהם שלך.",
+      "clips": [
+        { "id": "lifestyle-01", "title": "דוגמה · תופים", "note": "", "file": "clips/lifestyle-01.wav", "source": "prototype-synth", "credit": "צליל מסונתז, ממלא מקום" }
+      ]
+    }
+  ]
+}

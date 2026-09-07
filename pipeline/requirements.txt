@@ -1,0 +1,7 @@
+# System prerequisites (Homebrew): ffmpeg, rubberband
+librosa
+soundfile
+pyrubberband
+pyloudnorm
+numpy
+pydub
