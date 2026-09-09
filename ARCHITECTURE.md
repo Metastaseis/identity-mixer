@@ -115,9 +115,9 @@ prepare_clip.py <source> --asset <id> --title <t> [--bpm N] [--key K] [--start s
 1. **Load** the source with `librosa` at its native sample rate, mixed to mono for analysis, stereo preserved for output.
 2. **Detect** BPM, key and first downbeat, or take them from `--bpm`, `--key`, `--start`. Print what was detected and what was used.
 3. **Cut** exactly `bars` bars from the downbeat at the *source* tempo. Length in samples is `bars * 4 * (60 / source_bpm) * sr`, rounded to an integer.
-4. **Stretch and shift** with `pyrubberband`: time-stretch by `manifest.tempo / source_bpm`, and pitch-shift to the manifest key. The shift is relative-major-aware (a source in F major targeting D minor shifts by 0 semitones) and always uses the smallest signed semitone distance, in the range −6 to +6.
+4. **Stretch and shift** with `pyrubberband`: time-stretch by `manifest.tempo / source_bpm`, and pitch-shift to the manifest key. The shift is relative-major-aware (a source in F major targeting D minor shifts by 0 semitones) and always uses the smallest signed semitone distance, in the range −6 to +5.
 5. **Normalise** to −16 LUFS integrated with `pyloudnorm`, apply 5 ms linear fades at both ends, then verify the sample count equals `bars * 4 * (60 / manifest.tempo) * sr` exactly. Trim or pad by at most a few samples; abort if the difference is larger.
-6. **Export** MP3 at 192 kbps via `pydub` to `clips/<asset>-NN.mp3`, where `NN` is the next free two-digit index for that asset.
+6. **Export** MP3 at 192 kbps via `ffmpeg` (libmp3lame) to `clips/<asset>-NN.mp3`, plus a lossless WAV in `sources/prepared/` (git-ignored), where `NN` is the next free two-digit index for that asset.
 7. **Append** the clip entry to `manifest.json` under the matching asset, preserving existing formatting and key order.
 8. **Print** a summary: source, detected vs used BPM/key/downbeat, semitone shift, stretch ratio, loudness before/after, final length in samples and bars, output path.
 
@@ -126,7 +126,7 @@ prepare_clip.py <source> --asset <id> --title <t> [--bpm N] [--key K] [--start s
 ### Dependencies
 
 System (Homebrew): `ffmpeg`, `rubberband`.
-Python (`pipeline/requirements.txt`): `librosa`, `soundfile`, `pyrubberband`, `pyloudnorm`, `numpy`, `pydub`.
+Python (`pipeline/requirements.txt`): `librosa`, `soundfile`, `pyrubberband`, `pyloudnorm`, `numpy`. (`pydub` was dropped: it needs the `audioop` module that Python 3.13 removed; ffmpeg encodes the MP3 directly.)
 
 ## Phases
 

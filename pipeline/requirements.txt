@@ -4,4 +4,3 @@ soundfile
 pyrubberband
 pyloudnorm
 numpy
-pydub
