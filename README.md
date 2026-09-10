@@ -36,6 +36,24 @@ clips/          prepared loops (exact whole-bar loops at the shared tempo)
 pipeline/       Python tools that prepare clips (Phase 2)
 ```
 
+## Deploy
+
+The site is served by GitHub Pages from the `main` branch root of
+https://github.com/Metastaseis/identity-mixer. Public URL:
+
+https://metastaseis.github.io/identity-mixer/
+
+To publish an update: make the change, run `python pipeline/check_library.py`,
+test on the phone, commit, then
+
+```sh
+git push origin main
+```
+
+Pages rebuilds automatically; the change is live within about a minute.
+`qr.png` in the repo root encodes the public URL for the workshop room.
+Only `clips/` is committed; `sources/` never leaves this machine.
+
 ## Adding a clip (Phase 2)
 
 ```sh

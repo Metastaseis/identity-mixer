@@ -41,6 +41,12 @@ Hebrew only. Sentence case. Active voice. Short lines that fit a phone screen.
 3. Print the phone URL as `http://<en0 address>:8000`, with the address from `ipconfig getifaddr en0`. It changes between networks, so read it every time.
 4. Tell the user exactly what to test on the phone: which screen, which taps, what they should hear and see.
 
+## Build and deploy
+
+There is no build. GitHub Pages serves the `main` branch root directly, so every
+commit pushed to `main` is live at https://metastaseis.github.io/identity-mixer/
+within about a minute. Push only what has passed the phone test.
+
 ## Process
 
 - One task per session. Finish it, test on the phone, commit when it passes.
