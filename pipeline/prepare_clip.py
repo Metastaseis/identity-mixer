@@ -4,12 +4,12 @@ manifest tempo, in the manifest key, at -16 LUFS. Appends the clip to manifest.j
 
 usage: prepare_clip.py <source> --asset <id> --title <t>
                        [--bpm N] [--key K] [--start seconds] [--bars N]
-                       [--note TEXT] [--credit TEXT] [--root DIR]
+                       [--note TEXT] [--credit TEXT] [--fade MS] [--root DIR]
 
 Steps: load -> detect BPM / key / downbeat (or use flags) -> cut N bars from the
 downbeat at the source tempo -> time-stretch to the manifest tempo and pitch-shift
 to the manifest key (relative-major-aware, smallest signed shift in -6..+5, one
-rubberband pass) -> normalise to -16 LUFS with 5 ms fades and verify the exact loop
+rubberband pass) -> normalise to -16 LUFS with edge fades (5 ms default) and verify the exact loop
 length -> export MP3 192k to clips/<asset>-NN.mp3 and a lossless WAV to
 sources/prepared/ (MP3 via ffmpeg/libmp3lame) -> append to manifest.json -> print a summary.
 """
@@ -27,7 +27,6 @@ from analyze import (load_audio, analysis_signal, to_mono, detect_tempo, detect_
 warnings.filterwarnings("ignore")
 
 TARGET_LUFS = -16.0
-FADE_S = 0.005
 LENGTH_TOL_S = 0.010        # rubberband may land a few samples off; trim/pad up to this
 PEAK_CEILING = 0.99         # limiter ceiling; check_library flags anything at or above 0.999
 MP3_TOL_S = 0.026
@@ -59,7 +58,7 @@ def next_clip_index(asset, clips_dir):
 def save_manifest(m, path):
     """Two-space indent, one clip per line, matching the hand-written style."""
     out = ["{"]
-    for k in ("tempo", "key", "bars", "beats_per_bar"):
+    for k in ("version", "tempo", "key", "bars", "beats_per_bar"):
         out.append(f'  "{k}": {json.dumps(m[k], ensure_ascii=False)},')
     out.append('  "assets": [')
     for ai, a in enumerate(m["assets"]):
@@ -89,6 +88,7 @@ def main():
     ap.add_argument("--bars", type=int, help="override manifest default loop length")
     ap.add_argument("--note", default="", help="one short line shown under the title in the picker")
     ap.add_argument("--credit", default="", help="performer / origin / licence")
+    ap.add_argument("--fade", type=float, default=5.0, help="edge fade in ms (default 5; use ~30 for speech)")
     ap.add_argument("--root", default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                     help="repo root (default: this repo)")
     a = ap.parse_args()
@@ -163,7 +163,7 @@ def main():
     out = out[:n_target] if delta > 0 else np.vstack([out, np.zeros((-delta, out.shape[1]), out.dtype)])
     lufs_before = integrated_loudness(out, sr)
     out, lufs_final, reduction = normalize_loop(out, sr, TARGET_LUFS, PEAK_CEILING)
-    nf = int(FADE_S * sr)
+    nf = int(a.fade / 1000 * sr)
     ramp = np.linspace(0, 1, nf, dtype=out.dtype)[:, None]
     out[:nf] *= ramp
     out[-nf:] *= ramp[::-1]

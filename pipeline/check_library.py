@@ -2,7 +2,7 @@
 """Verify manifest.json and every clip it references. Exit 0 means green.
 
 Checks:
-  * manifest shape: tempo, key, bars, beats_per_bar (must be 4), exactly six assets
+  * manifest shape: version, tempo, key, bars, beats_per_bar (must be 4), exactly six assets
     in the canonical order with the canonical ids and names
   * every clip: required fields, id matches filename, file exists and decodes
   * loop length: samples == round(bars * beats_per_bar * 60 / tempo * sr)
@@ -32,11 +32,13 @@ LOSSY = {".mp3", ".m4a", ".aac", ".ogg", ".opus"}
 
 
 def check_manifest(m, errors):
-    for k in ("tempo", "key", "bars", "beats_per_bar", "assets"):
+    for k in ("version", "tempo", "key", "bars", "beats_per_bar", "assets"):
         if k not in m:
             errors.append(f"manifest: missing top-level '{k}'")
     if errors:
         return
+    if not isinstance(m["version"], int) or m["version"] < 1:
+        errors.append(f"manifest: version must be a positive integer, got {m['version']!r}")
     if m["beats_per_bar"] != 4:
         errors.append(f"manifest: beats_per_bar={m['beats_per_bar']} is unsupported (only 4 for now)")
     assets = m["assets"]

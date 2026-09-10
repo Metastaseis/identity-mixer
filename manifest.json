@@ -1,4 +1,5 @@
 {
+  "version": 1,
   "tempo": 100,
   "key": "D minor",
   "bars": 8,
@@ -19,7 +20,7 @@
       "color": "#4fb3e8",
       "description": "המקום, הנוף, הריח של הארץ.",
       "clips": [
-        { "id": "israel-01", "title": "דוגמה · בס", "note": "", "file": "clips/israel-01.wav", "source": "prototype-synth", "credit": "צליל מסונתז, ממלא מקום", "bars": 4 }
+        { "id": "israel-02", "title": "התקווה", "note": "", "file": "clips/israel-02.mp3", "source": "התקווה אנגלית-ישראל.wav", "credit": "הקלטה" }
       ]
     },
     {
@@ -37,7 +38,6 @@
       "color": "#e8865f",
       "description": "ספרים, מוזיקה, הומור, שיחה סביב השולחן.",
       "clips": [
-        { "id": "culture-01", "title": "דוגמה · ארפג׳יו", "note": "", "file": "clips/culture-01.wav", "source": "prototype-synth", "credit": "צליל מסונתז, ממלא מקום", "bars": 4 },
         { "id": "culture-02", "title": "ריקוד חסידי", "note": "", "file": "clips/culture-02.mp3", "source": "ריקוד חסידי- תרבות.mp3", "credit": "הקלטה" }
       ]
     },
@@ -47,7 +47,7 @@
       "color": "#c79ae6",
       "description": "מה מהעבר חי בך — סיפורים, ימי זיכרון, השם של סבתא.",
       "clips": [
-        { "id": "memory-01", "title": "דוגמה · כלי הקשה", "note": "", "file": "clips/memory-01.wav", "source": "prototype-synth", "credit": "צליל מסונתז, ממלא מקום", "bars": 4 }
+        { "id": "memory-02", "title": "עדות", "note": "", "file": "clips/memory-02.mp3", "source": "עדות מטרזין-זכרון.mp3", "credit": "הקלטה" }
       ]
     },
     {
@@ -56,7 +56,7 @@
       "color": "#f0f0f0",
       "description": "שבת, חגים, כשרות, מנהגים — במידה שהם שלך.",
       "clips": [
-        { "id": "lifestyle-01", "title": "דוגמה · תופים", "note": "", "file": "clips/lifestyle-01.wav", "source": "prototype-synth", "credit": "צליל מסונתז, ממלא מקום", "bars": 4 }
+        { "id": "lifestyle-02", "title": "להדליק נר", "note": "", "file": "clips/lifestyle-02.mp3", "source": "להדליק נר-עורכים חיים.wav", "credit": "הקלטה" }
       ]
     }
   ]

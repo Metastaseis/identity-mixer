@@ -5,17 +5,17 @@ Phone web app for מכינה workshops — six assets of Jewish identity as a si
 ## Run locally and test on a phone
 
 The app is static files, no build step. Serve the repo root and open it on a phone
-on the same Wi-Fi network.
+on the same Wi-Fi network. The server must bind IPv4 explicitly, or the phone
+cannot reach it:
 
 ```sh
-python -m http.server 8000
+python3 -m http.server 8000 --bind 0.0.0.0
 ```
 
-Find the Mac's local IP (System Settings → Wi-Fi → Details, or `ipconfig getifaddr en0`)
-and open on the phone:
+Open on the phone the address of the Mac's `en0` interface:
 
-```
-http://<mac-ip>:8000
+```sh
+echo "http://$(ipconfig getifaddr en0):8000"
 ```
 
 On iOS Safari, audio only starts after a tap on the play button. If nothing plays,

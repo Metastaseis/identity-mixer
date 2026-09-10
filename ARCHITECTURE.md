@@ -39,6 +39,7 @@ Top level:
 
 | Field   | Type   | Meaning                                              |
 |---------|--------|------------------------------------------------------|
+| `version` | integer | Bump whenever clip order or defaults change. The app then drops saved clip choices (fader levels survive) |
 | `tempo` | number | Shared BPM for the whole library                     |
 | `key`   | string | Shared key, e.g. `"D minor"`                         |
 | `bars`  | number | Default loop length in bars (clips may override)     |
@@ -69,6 +70,7 @@ Example with one asset:
 
 ```json
 {
+  "version": 1,
   "tempo": 92,
   "key": "D minor",
   "bars": 8,

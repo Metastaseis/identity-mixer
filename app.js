@@ -13,6 +13,7 @@ const board = document.getElementById("board");
 const playBtn = document.getElementById("play");
 
 let ASSETS = [];
+let MANIFEST_VERSION = 0;
 let state = [];
 let master = MASTER_DEFAULT, playing = false;
 
@@ -23,21 +24,32 @@ async function loadManifest() {
   const m = await res.json();
   if (!Array.isArray(m.assets) || m.assets.length !== 6) throw new Error("manifest needs exactly six assets");
   if (m.beats_per_bar !== 4) throw new Error("only 4 beats per bar are supported");
+  if (!Number.isInteger(m.version)) throw new Error("manifest needs an integer version");
   m.assets.forEach(a => { if (!a.clips || !a.clips.length) throw new Error(`asset ${a.id} has no clips`); });
   return m;
 }
 
 // ---------- state ----------
+// Saved fader levels always survive. Saved clip choices survive only while the
+// manifest version is unchanged: a bump means clip order or defaults moved.
 function loadState() {
   state = ASSETS.map(() => ({ level: LEVEL_DEFAULT, clip: 0 }));
-  try {
-    const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-    if (s && s.levels) s.levels.forEach((v, i) => { if (state[i]) state[i].level = v; });
-    if (s && s.clips) s.clips.forEach((v, i) => { if (state[i] && ASSETS[i].clips[v]) state[i].clip = v; });
-  } catch (e) {}
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch (e) {}
+  if (!saved) return;
+  if (saved.levels) saved.levels.forEach((v, i) => { if (state[i]) state[i].level = v; });
+  if (saved.version === MANIFEST_VERSION && saved.clips) {
+    saved.clips.forEach((v, i) => { if (state[i] && ASSETS[i].clips[v]) state[i].clip = v; });
+  } else {
+    persist();   // record the new version with default clip choices
+  }
 }
 function persist() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ levels: state.map(s => s.level), clips: state.map(s => s.clip) })); } catch (e) {}
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      version: MANIFEST_VERSION, levels: state.map(s => s.level), clips: state.map(s => s.clip),
+    }));
+  } catch (e) {}
 }
 const levels = () => state.map(s => s.level);
 const clipOf = i => ASSETS[i].clips[state[i].clip];
@@ -174,6 +186,7 @@ document.getElementById("copyBtn").onclick = async () => {
   try {
     const m = await loadManifest();
     ASSETS = m.assets;
+    MANIFEST_VERSION = m.version;
     loadState();
     buildBoard();
     playBtn.disabled = false;
