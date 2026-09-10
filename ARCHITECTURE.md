@@ -7,7 +7,7 @@ Identity Mixer is a phone-first, Hebrew (RTL) static web app for מכינה work
 ## Design invariants
 
 1. **One tempo, one key, fixed in `manifest.json`.** The whole library shares a single tempo and a single key. All synchronisation and harmonisation work happens in the preparation pipeline, never at runtime. The player does exactly one audio job: start all loops together and keep them running.
-2. **Every clip is an exact whole-bar loop.** Default length is 8 bars at the shared tempo. Every clip is loudness-matched so faders mean the same thing across assets.
+2. **Every clip is an exact whole-bar loop.** Default length is 8 bars at the shared tempo, stored as WAV (mono, 44.1 kHz, 16-bit) so the sample count is exact. MP3 cannot hold an exact loop length: encoders pad the stream and decoders trim differently, so an MP3 loop drifts against the others. Every clip is loudness-matched so faders mean the same thing across assets. The player loops each source over its grid length (`loopEnd`), never over the decoded buffer length.
 3. **No build step, no framework.** The app is `index.html` + `app.js` + `styles.css` + `manifest.json` + `clips/`. It deploys as plain static files to any host.
 4. **Hebrew, RTL, phone-first, iOS Safari compatible.** The `AudioContext` is created and resumed only inside the play tap, because iOS refuses audio that is not user-initiated.
 5. **One copy of every file, versioned with Git.** No `*_v2` files, no duplicate folders, no "backup" copies. History lives in Git.
@@ -16,10 +16,11 @@ Identity Mixer is a phone-first, Hebrew (RTL) static web app for מכינה work
 
 ```
 index.html            Single page: mixer UI, profile view, share
+profile.js            SVG radar profile, shared with facilitator/ later
 app.js                Manifest loading, Web Audio scheduling, faders, profile
 styles.css            RTL, phone-first layout
 manifest.json         Shared tempo/key/bars + assets + clips
-clips/                Prepared loops (MP3, committed)
+clips/                Prepared loops (WAV mono 44.1 kHz 16-bit, committed)
 sources/              Original recordings (git-ignored, never committed)
 pipeline/
   prepare_clip.py     Source recording -> prepared loop + manifest entry
@@ -62,7 +63,7 @@ Each clip:
 | `id`     | string | `<asset>-NN`, matches the filename                        |
 | `title`  | string | Hebrew title shown in the clip picker                     |
 | `note`   | string | One short Hebrew line: what this clip is and why it fits  |
-| `file`   | string | Path relative to repo root, e.g. `clips/hebrew-01.mp3`    |
+| `file`   | string | Path relative to repo root, e.g. `clips/hebrew-01.wav`    |
 | `source` | string | Original filename under `sources/` (for traceability)     |
 | `credit` | string | Performer / origin / licence note                         |
 
@@ -85,7 +86,7 @@ Example with one asset:
           "id": "hebrew-01",
           "title": "שיר ערש",
           "note": "קול אחד, בלי ליווי. עברית כנשימה.",
-          "file": "clips/hebrew-01.mp3",
+          "file": "clips/hebrew-01.wav",
           "source": "hebrew_lullaby_take2.wav",
           "credit": "הקלטה ביתית, 2026, שימוש בהסכמה"
         }
@@ -114,21 +115,21 @@ prepare_clip.py <source> --asset <id> --title <t> [--bpm N] [--key K] [--start s
 
 ### Steps
 
-1. **Load** the source with `librosa` at its native sample rate, mixed to mono for analysis, stereo preserved for output.
+1. **Load** the source and resample to 44.1 kHz, mixed to mono for analysis, stereo preserved through the stretch.
 2. **Detect** BPM, key and first downbeat, or take them from `--bpm`, `--key`, `--start`. Print what was detected and what was used.
 3. **Cut** exactly `bars` bars from the downbeat at the *source* tempo. Length in samples is `bars * 4 * (60 / source_bpm) * sr`, rounded to an integer.
 4. **Stretch and shift** with `pyrubberband`: time-stretch by `manifest.tempo / source_bpm`, and pitch-shift to the manifest key. The shift is relative-major-aware (a source in F major targeting D minor shifts by 0 semitones) and always uses the smallest signed semitone distance, in the range −6 to +5.
 5. **Normalise** to −16 LUFS integrated with `pyloudnorm`, apply 5 ms linear fades at both ends, then verify the sample count equals `bars * 4 * (60 / manifest.tempo) * sr` exactly. Trim or pad by at most a few samples; abort if the difference is larger.
-6. **Export** MP3 at 192 kbps via `ffmpeg` (libmp3lame) to `clips/<asset>-NN.mp3`, plus a lossless WAV in `sources/prepared/` (git-ignored), where `NN` is the next free two-digit index for that asset.
+6. **Export** `clips/<asset>-NN.wav` as mono 44.1 kHz 16-bit WAV with TPDF dither, exact sample count, plus a stereo 24-bit master in `sources/prepared/` (git-ignored), where `NN` is the next free two-digit index for that asset.
 7. **Append** the clip entry to `manifest.json` under the matching asset, preserving existing formatting and key order.
 8. **Print** a summary: source, detected vs used BPM/key/downbeat, semitone shift, stretch ratio, loudness before/after, final length in samples and bars, output path.
 
-`check_library.py` re-derives step 5 for every clip in the manifest and exits non-zero on any mismatch. `analyze.py` runs step 2 only and prints the result, for auditioning sources before committing to a cut.
+`check_library.py` re-derives step 5 for every clip in the manifest, requires WAV and an exact sample count, and exits non-zero on any mismatch. `analyze.py` runs step 2 only and prints the result, for auditioning sources before committing to a cut.
 
 ### Dependencies
 
 System (Homebrew): `ffmpeg`, `rubberband`.
-Python (`pipeline/requirements.txt`): `librosa`, `soundfile`, `pyrubberband`, `pyloudnorm`, `numpy`. (`pydub` was dropped: it needs the `audioop` module that Python 3.13 removed; ffmpeg encodes the MP3 directly.)
+Python (`pipeline/requirements.txt`): `librosa`, `soundfile`, `pyrubberband`, `pyloudnorm`, `numpy`. (`pydub` was dropped: it needs the `audioop` module that Python 3.13 removed. `ffmpeg` is used only by librosa as a decoder for source files.)
 
 ## Phases
 

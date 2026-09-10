@@ -17,6 +17,7 @@ pip install -r pipeline/requirements.txt
 |--------------------|-------------------------------------------------------------------------|
 | `analyze.py`       | BPM, key + confidence, LUFS, duration, first strong onset. `--json` too |
 | `prepare_clip.py`  | Source → exact-loop clip at the manifest tempo/key/loudness + manifest entry |
+| `library.py`       | `list`, `add`, `replace`, `remove` clips. Every change bumps the manifest version |
 | `check_library.py` | Verify every clip: length, loudness, clipping, manifest shape. Exit 0 = green |
 
 ## Example
@@ -29,7 +30,30 @@ python pipeline/prepare_clip.py "sources/ריקוד חסידי.mp3" --asset cult
 python pipeline/check_library.py
 ```
 
-`prepare_clip.py` writes `clips/<asset>-NN.mp3` (committed) and a lossless copy in
-`sources/prepared/<asset>-NN.wav` (git-ignored). Override detection with `--bpm`,
+`prepare_clip.py` writes `clips/<asset>-NN.wav` (mono, 44.1 kHz, 16-bit, exact sample
+count; committed) and a stereo 24-bit master in `sources/prepared/<asset>-NN.wav`
+(git-ignored). Clips are WAV because MP3 cannot hold an exact loop length and
+would drift against the other channels. Override detection with `--bpm`,
 `--key` and `--start` when the analysis is wrong; `--bars` overrides the manifest default.
 Only 4 beats per bar is supported.
+
+## Managing the library
+
+```sh
+python pipeline/library.py list
+python pipeline/library.py add "sources/<file>" --asset values --title "<title>" --credit "<credit>"
+python pipeline/library.py replace <clip-id> "sources/<file>" [--title "<title>"] [--start S] [--bpm N] [--key K]
+python pipeline/library.py remove <clip-id>
+```
+
+`replace` keeps the clip id and its position in the picker, so the participant's
+choice stays valid. `remove` refuses to delete an asset's last clip. Every command
+bumps `version` in `manifest.json`, which makes phones drop their saved clip
+choices (fader levels survive). Run `check_library.py` afterwards.
+
+Replace the placeholder for השפה העברית with a new source:
+
+```sh
+python pipeline/library.py replace hebrew-01 "sources/<file>" --title "<title>" --credit "<credit>"
+python pipeline/check_library.py
+```

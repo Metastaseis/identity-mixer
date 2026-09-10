@@ -1,19 +1,21 @@
 // Identity Mixer — player and UI. Driven entirely by manifest.json.
-// The player's only audio job: start every loop at one shared AudioContext time.
-// Sync and harmony are solved in pipeline/, never here.
+// The player's only audio job: start every loop at one shared AudioContext time
+// and loop each one over exactly its bar-grid length. Sync and harmony are
+// solved in pipeline/, never here.
 
 const LEVEL_DEFAULT = 0.6;
 const MASTER_DEFAULT = 0.8;
 const START_LEAD = 0.15;      // seconds between the tap and the shared start time
+const SWAP_LEAD = 0.05;       // seconds between a picker tap and the swap
 const RAMP = 0.03;            // setTargetAtTime time constant for click-free fader moves
 const STORAGE_KEY = "mixer-state";
+const DEBUG = new URLSearchParams(location.search).get("debug") === "1";
 
 const status = document.getElementById("status");
 const board = document.getElementById("board");
 const playBtn = document.getElementById("play");
 
-let ASSETS = [];
-let MANIFEST_VERSION = 0;
+let MANIFEST = null, ASSETS = [], MANIFEST_VERSION = 0;
 let state = [];
 let master = MASTER_DEFAULT, playing = false;
 
@@ -28,6 +30,9 @@ async function loadManifest() {
   m.assets.forEach(a => { if (!a.clips || !a.clips.length) throw new Error(`asset ${a.id} has no clips`); });
   return m;
 }
+// Loop lengths come from the manifest grid, never from decoded buffer lengths.
+const barLength = () => MANIFEST.beats_per_bar * 60 / MANIFEST.tempo;
+const loopLength = clip => (clip.bars ?? MANIFEST.bars) * barLength();
 
 // ---------- state ----------
 // Saved fader levels always survive. Saved clip choices survive only while the
@@ -74,10 +79,13 @@ async function loadBuffer(file) {
   buffers.set(file, buf); return buf;
 }
 function makeChannel(buf, i) {
-  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+  const clip = clipOf(i), L = loopLength(clip);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.loop = true; src.loopStart = 0; src.loopEnd = L;   // the bar grid, not buf.duration
   const g = ctx.createGain(); g.gain.value = toGain(state[i].level);
   src.connect(g); g.connect(masterGain);
-  return { src, g };
+  return { src, g, clip, L };
 }
 async function startAll() {
   await ensureAudio();
@@ -88,25 +96,71 @@ async function startAll() {
   startTime = t0;
   chans = bufs.map((buf, i) => { const c = makeChannel(buf, i); c.src.start(t0); return c; });
   playing = true; status.textContent = "";
+  if (DEBUG) debugStart();
 }
 function stopAll(silent) {
   chans.forEach(c => { try { c.src.stop(); } catch (e) {} });
   chans = [];
-  if (!silent) playing = false;
+  if (!silent) { playing = false; if (DEBUG) debugStop(); }
 }
-async function swapClip(i) {   // replace one channel in place, aligned to the running loop
+async function swapClip(i) {   // replace one channel in place, aligned to the shared bar grid
   if (!playing) return;
   const buf = await loadBuffer(clipOf(i).file);
   const old = chans[i];
-  const offset = (ctx.currentTime - startTime) % buf.duration;
   const c = makeChannel(buf, i);
-  c.src.start(ctx.currentTime, offset);
-  try { old.src.stop(); } catch (e) {}
+  const t = ctx.currentTime + SWAP_LEAD;
+  const offset = (t - startTime) % c.L;          // where this clip's loop is on the grid at time t
+  c.src.start(t, offset);
+  try { old.src.stop(t); } catch (e) {}
   chans[i] = c;
+  if (DEBUG) debugChannel(i, t);
 }
 function setLevel(i, v) {
   state[i].level = v;
   if (chans[i]) chans[i].g.gain.setTargetAtTime(toGain(v), ctx.currentTime, RAMP);
+}
+
+// ---------- sync self-test (?debug=1) ----------
+// Web Audio exposes no playhead, so this reports what can be known: every source's
+// scheduled start and loopEnd, each decoded buffer's length against the grid (the
+// drift a buffer-length loop would accumulate, which explicit loopEnd removes),
+// and the audio clock against the wall clock (a stall shows as growing skew).
+const dbg = { timer: null, wall0: 0, lastLoop: -1, maxDrift: 0 };
+function debugChannel(i, t) {
+  const c = chans[i], b = c.src.buffer;
+  const gridSamples = Math.round(c.L * b.sampleRate), delta = b.length - gridSamples;
+  console.log(`[sync] ch${i} ${c.clip.id}: start ${t.toFixed(6)} s, loopEnd ${c.L.toFixed(6)} s, `
+    + `buffer ${b.length} samples @${b.sampleRate} Hz (grid ${gridSamples}, Δ ${delta >= 0 ? "+" : ""}${delta})`);
+}
+function debugStart() {
+  console.log(`[sync] start scheduled at ${startTime.toFixed(6)} s, context ${ctx.sampleRate} Hz, `
+    + `bar ${barLength().toFixed(4)} s, library loop ${(MANIFEST.bars * barLength()).toFixed(4)} s`);
+  chans.forEach((_, i) => debugChannel(i, startTime));
+  dbg.wall0 = performance.now() / 1000 - ctx.currentTime;
+  dbg.lastLoop = -1; dbg.maxDrift = 0;
+  dbg.timer = setInterval(debugTick, 100);
+}
+function debugStop() { clearInterval(dbg.timer); dbg.timer = null; }
+function debugTick() {
+  if (!playing) return;
+  const el = ctx.currentTime - startTime;
+  if (el < 0) return;
+  const loop = Math.floor(el / (MANIFEST.bars * barLength()));
+  if (loop === dbg.lastLoop) return;
+  dbg.lastLoop = loop;
+  const skewMs = ((performance.now() / 1000 - dbg.wall0) - ctx.currentTime) * 1000;
+  let worst = 0;
+  const rows = chans.map((c, i) => {
+    const b = c.src.buffer;
+    const bufLoop = b.length / b.sampleRate;
+    const pos = el % c.L;                                          // playback position on the grid
+    const wouldDrift = (bufLoop - c.L) * Math.floor(el / c.L) * 1000; // ms, without explicit loopEnd
+    worst = Math.max(worst, Math.abs(wouldDrift));
+    return `ch${i} ${c.clip.id} pos ${pos.toFixed(3)} s, bufΔ ${((bufLoop - c.L) * 1000).toFixed(3)} ms/loop, would-be ${wouldDrift.toFixed(2)} ms`;
+  });
+  dbg.maxDrift = Math.max(dbg.maxDrift, worst);
+  console.log(`[sync] loop ${loop} at ${el.toFixed(3)} s, clock skew ${skewMs.toFixed(1)} ms\n  ` + rows.join("\n  "));
+  status.textContent = `בדיקת סנכרון · לולאה ${loop} · סטייה מקסימלית ${dbg.maxDrift.toFixed(2)} מ״ש · שעון ${skewMs >= 0 ? "+" : ""}${skewMs.toFixed(1)} מ״ש`;
 }
 
 // ---------- UI ----------
@@ -159,7 +213,7 @@ playBtn.onclick = async () => {
   if (!playing) {
     playBtn.disabled = true;
     try { await startAll(); playBtn.textContent = "עצור"; playBtn.setAttribute("aria-pressed", "true"); }
-    catch (e) { status.textContent = "לא הצלחתי להפעיל שמע. נסו שוב."; }
+    catch (e) { status.textContent = "לא הצלחתי להפעיל שמע. נסו שוב."; console.error(e); }
     playBtn.disabled = false;
   } else {
     stopAll(); playBtn.textContent = "נגן"; playBtn.setAttribute("aria-pressed", "false");
@@ -184,12 +238,13 @@ document.getElementById("copyBtn").onclick = async () => {
 (async () => {
   playBtn.disabled = true;
   try {
-    const m = await loadManifest();
-    ASSETS = m.assets;
-    MANIFEST_VERSION = m.version;
+    MANIFEST = await loadManifest();
+    ASSETS = MANIFEST.assets;
+    MANIFEST_VERSION = MANIFEST.version;
     loadState();
     buildBoard();
     playBtn.disabled = false;
+    if (DEBUG) status.textContent = "מצב בדיקת סנכרון";
   } catch (e) {
     status.textContent = "לא הצלחתי לטעון את ספריית הקטעים.";
     console.error(e);

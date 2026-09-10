@@ -31,8 +31,9 @@ app.js          manifest loading, Web Audio scheduling, faders, persistence
 profile.js      SVG radar profile (shared later with the facilitator page)
 styles.css      RTL, phone-first layout
 manifest.json   shared tempo / key / bars + six assets + their clips
-clips/          prepared loops (exact whole-bar loops at the shared tempo)
-                Phase 1: six synthesized placeholder WAVs, 4 bars at 100 BPM, A minor
+clips/          prepared loops: WAV, mono, 44.1 kHz, 16-bit, exact whole-bar length.
+                WAV, not MP3, on purpose: MP3 cannot hold an exact loop length
+                (encoder padding, decoder trimming) and the loops would drift apart.
 pipeline/       Python tools that prepare clips (Phase 2)
 ```
 
@@ -54,7 +55,7 @@ Pages rebuilds automatically; the change is live within about a minute.
 `qr.png` in the repo root encodes the public URL for the workshop room.
 Only `clips/` is committed; `sources/` never leaves this machine.
 
-## Adding a clip (Phase 2)
+## Adding a clip
 
 ```sh
 brew install ffmpeg rubberband

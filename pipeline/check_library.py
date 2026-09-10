@@ -2,12 +2,12 @@
 """Verify manifest.json and every clip it references. Exit 0 means green.
 
 Checks:
-  * manifest shape: version, tempo, key, bars, beats_per_bar (must be 4), exactly six assets
-    in the canonical order with the canonical ids and names
-  * every clip: required fields, id matches filename, file exists and decodes
-  * loop length: samples == round(bars * beats_per_bar * 60 / tempo * sr)
-      WAV/FLAC: exact.  MP3: within one MP3 frame (~26 ms), because MP3 encoders
-      pad the stream and decoders differ in how much of that padding they strip.
+  * manifest shape: version, tempo, key, bars, beats_per_bar (must be 4), exactly six
+    assets in the canonical order with the canonical ids and names
+  * every clip: required fields, id matches filename, file is WAV, exists, decodes
+  * loop length: samples == bars * beats_per_bar * 60 / tempo * sr, exactly.
+    Only WAV is accepted: MP3 cannot hold an exact sample count (encoder padding,
+    decoder-dependent trimming), so an MP3 loop drifts against the others.
   * loudness: integrated LUFS within -16 ± 1
   * clipping: any sample at or above 0.999 full scale
 
@@ -25,10 +25,7 @@ CANON = [("hebrew", "השפה העברית"), ("israel", "ישראל"), ("values
 CLIP_FIELDS = ["id", "title", "note", "file", "source", "credit"]
 ASSET_FIELDS = ["id", "name", "color", "description", "clips"]
 TARGET_LUFS, LUFS_TOL = -16.0, 1.0
-MP3_TOL_S = 0.026
 CLIP_LEVEL = 0.999
-
-LOSSY = {".mp3", ".m4a", ".aac", ".ogg", ".opus"}
 
 
 def check_manifest(m, errors):
@@ -59,11 +56,6 @@ def check_manifest(m, errors):
             errors.append(f"asset {cid}: no clips")
 
 
-def expected_samples(m, bars, sr):
-    x = bars * m["beats_per_bar"] * 60.0 / m["tempo"] * sr
-    return int(round(x)), x
-
-
 def check_clip(m, a, c, root, errors):
     cid, path = c.get("id", "?"), c.get("file", "")
     for k in CLIP_FIELDS:
@@ -73,6 +65,9 @@ def check_clip(m, a, c, root, errors):
         errors.append(f"clip {cid}: id must start with '{a.get('id')}-'")
     if os.path.splitext(os.path.basename(path))[0] != cid:
         errors.append(f"clip {cid}: file '{path}' does not match id")
+    if os.path.splitext(path)[1].lower() != ".wav":
+        errors.append(f"clip {cid}: only WAV clips are allowed (exact loop length); got {path}")
+        return None
     full = os.path.join(root, path)
     if not os.path.isfile(full):
         errors.append(f"clip {cid}: file not found: {path}")
@@ -83,26 +78,25 @@ def check_clip(m, a, c, root, errors):
         errors.append(f"clip {cid}: cannot decode {path}: {e}")
         return None
     n = len(y)
-    ext = os.path.splitext(path)[1].lower()
     bars = c.get("bars", m["bars"])
-    exp, exact = expected_samples(m, bars, sr)
-    tol = int(round(MP3_TOL_S * sr)) if ext in LOSSY else 0
-    delta = n - exp
+    exact = bars * m["beats_per_bar"] * 60.0 / m["tempo"] * sr
+    exp = int(round(exact))
     problems = []
-    if abs(delta) > tol:
-        problems.append(f"length {n} samples, expected {exp} ({bars} bars @ {m['tempo']} BPM, {sr} Hz), Δ {delta:+d} > tol {tol}")
+    if abs(exact - exp) > 1e-6:
+        problems.append(f"{bars} bars at {m['tempo']} BPM is not a whole number of samples at {sr} Hz")
+    elif n != exp:
+        problems.append(f"length {n} samples, expected exactly {exp} ({bars} bars @ {m['tempo']} BPM, {sr} Hz), Δ {n-exp:+d}")
     lufs = integrated_loudness(y, sr)
     if np.isnan(lufs) or abs(lufs - TARGET_LUFS) > LUFS_TOL:
         problems.append(f"loudness {lufs:.2f} LUFS outside {TARGET_LUFS} ± {LUFS_TOL}")
-    pk_db, pk = peak_dbfs(y)
+    pk_db, _ = peak_dbfs(y)
     clipped = int(np.sum(np.abs(y) >= CLIP_LEVEL))
     if clipped:
         problems.append(f"clipping: {clipped} sample(s) at or above {CLIP_LEVEL} FS")
     for p in problems:
         errors.append(f"clip {cid}: {p}")
-    return {"path": path, "ext": ext, "sr": sr, "ch": y.shape[1], "n": n, "exp": exp, "delta": delta,
-            "tol": tol, "lufs": lufs, "peak_db": pk_db, "clipped": clipped, "ok": not problems,
-            "sub_sample": exact - exp}
+    return {"path": path, "sr": sr, "ch": y.shape[1], "n": n, "exp": exp, "delta": n - exp,
+            "lufs": lufs, "peak_db": pk_db, "ok": not problems}
 
 
 def main():
@@ -118,18 +112,16 @@ def main():
     if errors:
         print("\n".join(errors)); sys.exit(1)
 
-    print(f"library: tempo {m['tempo']} BPM, key {m['key']}, {m['bars']} bars, {m['beats_per_bar']}/4")
-    print(f"{'clip':22s} {'fmt':4s} {'sr':>6s} {'ch':>2s} {'samples':>8s} {'Δ':>6s} {'tol':>4s} {'LUFS':>7s} {'peak':>7s}  status")
+    print(f"library v{m['version']}: tempo {m['tempo']} BPM, key {m['key']}, {m['bars']} bars, {m['beats_per_bar']}/4")
+    print(f"{'clip':24s} {'sr':>6s} {'ch':>2s} {'samples':>8s} {'Δ':>4s} {'LUFS':>7s} {'peak':>7s}  status")
     rows = []
     for asset in m["assets"]:
         for c in asset.get("clips", []):
             r = check_clip(m, asset, c, root, errors)
             if r:
                 rows.append(r)
-                status = "ok" if r["ok"] else "FAIL"
-                note = " (mp3: ±1 frame tolerance)" if r["ext"] in LOSSY and r["ok"] else ""
-                print(f"{r['path']:22s} {r['ext'][1:]:4s} {r['sr']:6d} {r['ch']:2d} {r['n']:8d} {r['delta']:+6d} {r['tol']:4d} "
-                      f"{r['lufs']:7.2f} {r['peak_db']:7.2f}  {status}{note}")
+                print(f"{r['path']:24s} {r['sr']:6d} {r['ch']:2d} {r['n']:8d} {r['delta']:+4d} "
+                      f"{r['lufs']:7.2f} {r['peak_db']:7.2f}  {'ok' if r['ok'] else 'FAIL'}")
     if errors:
         print()
         print("\n".join(errors))
