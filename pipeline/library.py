@@ -6,10 +6,15 @@ usage:
   library.py list
   library.py add <source> --asset <id> --title <t> [--bpm N] [--key K] [--start S] [--bars N] [--tempo-ratio R]
                  [--note TEXT] [--credit TEXT] [--fade MS]
+  library.py add --midi <file.mid> --asset <id> --title <t> [--bars N] [--note TEXT] [--credit TEXT] [--fade MS]
   library.py replace <clip-id> <source> [--title <t>] [--bpm N] [--key K] [--start S] [--bars N] [--tempo-ratio R]
                  [--note TEXT] [--credit TEXT] [--fade MS]
+  library.py replace <clip-id> --midi <file.mid> [--title <t>] [--bars N] [--note TEXT] [--credit TEXT] [--fade MS]
       prepares the source, then removes the old clip's file and manifest entry.
       The clip keeps its id and its position in the picker.
+      --midi renders the file with render_midi.py at the manifest tempo instead of
+      preparing a recording: no detection, no stretch, no shift; the exact-length,
+      loudness and export steps still run. Default fade is 0 ms for MIDI.
   library.py remove <clip-id>
       refuses to remove an asset's last clip (the manifest needs one per asset).
 All subcommands accept --root DIR (default: this repo).
@@ -59,7 +64,7 @@ def cmd_list(a):
 
 
 def prep_kwargs(a):
-    return dict(bpm=a.bpm, key=a.key, start=a.start, bars=a.bars, tempo_ratio=a.tempo_ratio,
+    return dict(midi=a.midi, bpm=a.bpm, key=a.key, start=a.start, bars=a.bars, tempo_ratio=a.tempo_ratio,
                 note=a.note, credit=a.credit, fade=a.fade, root=a.root)
 
 
@@ -110,10 +115,12 @@ def main():
     ap = argparse.ArgumentParser(description="Manage the clip library.")
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("list", help="table of assets and clips"); p.add_argument("--root", default=ROOT)
-    p = sub.add_parser("add", help="prepare a source and append it to an asset")
-    p.add_argument("source"); p.add_argument("--asset", required=True); p.add_argument("--title", required=True); add_args(p)
-    p = sub.add_parser("replace", help="prepare a source into an existing clip id, keeping its position")
-    p.add_argument("clip_id"); p.add_argument("source"); p.add_argument("--title"); add_args(p)
+    p = sub.add_parser("add", help="prepare a source (or render --midi) and append it to an asset")
+    p.add_argument("source", nargs="?", help="source recording (omit with --midi)")
+    p.add_argument("--asset", required=True); p.add_argument("--title", required=True); add_args(p)
+    p = sub.add_parser("replace", help="prepare a source (or render --midi) into an existing clip id, keeping its position")
+    p.add_argument("clip_id"); p.add_argument("source", nargs="?", help="source recording (omit with --midi)")
+    p.add_argument("--title"); add_args(p)
     p = sub.add_parser("remove", help="delete a clip's file and manifest entry"); p.add_argument("clip_id"); p.add_argument("--root", default=ROOT)
     a = ap.parse_args()
     {"list": cmd_list, "add": cmd_add, "replace": cmd_replace, "remove": cmd_remove}[a.cmd](a)

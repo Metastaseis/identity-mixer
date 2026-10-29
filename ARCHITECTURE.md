@@ -21,9 +21,11 @@ app.js                Manifest loading, Web Audio scheduling, faders, profile
 styles.css            RTL, phone-first layout
 manifest.json         Shared tempo/key/bars + assets + clips
 clips/                Prepared loops (WAV mono 44.1 kHz 16-bit, committed)
+midi/                 MIDI behind every MIDI-rendered clip: the source of truth for those clips (committed)
 sources/              Original recordings (git-ignored, never committed)
 pipeline/
   prepare_clip.py     Source recording -> prepared loop + manifest entry
+  render_midi.py      .mid -> exact loop at the manifest tempo; library.py --midi uses it
   analyze.py          Report BPM / key / downbeat of a source file
   check_library.py    Verify every manifest clip exists, loops exactly, matches tempo/key/loudness
   requirements.txt    Python dependencies

@@ -34,8 +34,43 @@ manifest.json   shared tempo / key / bars + six assets + their clips
 clips/          prepared loops: WAV, mono, 44.1 kHz, 16-bit, exact whole-bar length.
                 WAV, not MP3, on purpose: MP3 cannot hold an exact loop length
                 (encoder padding, decoder trimming) and the loops would drift apart.
+midi/           the MIDI behind every MIDI-rendered clip (source of truth, committed)
 pipeline/       Python tools that prepare clips (Phase 2)
 ```
+
+## MIDI clips
+
+The current six clips are rendered from MIDI, not cut from recordings. For them
+`midi/` is the source of truth and `clips/` is the build product:
+
+- `midi/<name>.mid` is the thing you edit: one file per clip, separate tracks for
+  melody, bass, guitar or pad, and drums, written in the library key. Change it in
+  a DAW, then re-render. Never edit a rendered WAV by hand.
+- `clips/<asset>-NN.wav` is what `pipeline/render_midi.py` makes from it, through
+  `library.py --midi`: an exact whole-bar loop at the manifest tempo, −16 LUFS,
+  committed like any other clip.
+- `manifest.json` points `source` at the MIDI (for example
+  `midi/israel-hatikva-full.mid`) and carries `credit: "עיבוד MIDI"`.
+
+Re-render one clip after editing its MIDI (the clip keeps its id and picker position):
+
+```sh
+python pipeline/library.py replace israel-02 --midi midi/israel-hatikva-full.mid
+python pipeline/check_library.py
+```
+
+Add a new MIDI clip:
+
+```sh
+python pipeline/library.py add --midi midi/<name>.mid --asset <id> --title "<title>" \
+    --note "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור" --credit "עיבוד MIDI"
+```
+
+`render_midi.py` reads tempo, bars and beats per bar from `manifest.json`, so after a
+tempo or loop-length change re-render every MIDI clip with `replace --midi` and the
+library stays in sync. The renderer does not shift pitch: after a key change,
+transpose the MIDI files in the DAW first (or render once by hand with
+`render_midi.py --transpose N` to audition).
 
 ## Deploy
 
