@@ -66,6 +66,8 @@ Each clip:
 | `file`   | string | Path relative to repo root, e.g. `clips/hebrew-01.wav`    |
 | `source` | string | Original filename under `sources/` (for traceability)     |
 | `credit` | string | Performer / origin / licence note                         |
+| `bars`   | number | Optional. Loop length override for this clip              |
+| `tempo_ratio` | number | Optional. Source was stretched to tempo × this (0.5, 1.5, 2) |
 
 Example with one asset:
 
@@ -103,7 +105,7 @@ Asset ids and canonical order: `hebrew`, `israel`, `values`, `culture`, `memory`
 ### CLI
 
 ```
-prepare_clip.py <source> --asset <id> --title <t> [--bpm N] [--key K] [--start seconds] [--bars N]
+prepare_clip.py <source> --asset <id> --title <t> [--bpm N] [--key K] [--start seconds] [--bars N] [--tempo-ratio R]
 ```
 
 - `<source>` is a file under `sources/`.
@@ -112,6 +114,7 @@ prepare_clip.py <source> --asset <id> --title <t> [--bpm N] [--key K] [--start s
 - `--bpm` and `--key` override detection when analysis is wrong or ambiguous.
 - `--start` is a seconds offset that overrides the detected downbeat.
 - `--bars` overrides the manifest default loop length.
+- `--tempo-ratio` (0.5, 1, 1.5, 2) stretches the source to library tempo × R and cuts bars × R source bars, so the loop still equals the library loop exactly. For sources far from the library tempo. Recorded as `tempo_ratio` in the clip entry.
 
 ### Steps
 

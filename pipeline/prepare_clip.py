@@ -3,8 +3,14 @@
 manifest tempo, in the manifest key, at -16 LUFS. Appends the clip to manifest.json.
 
 usage: prepare_clip.py <source> --asset <id> --title <t>
-                       [--bpm N] [--key K] [--start seconds] [--bars N]
+                       [--bpm N] [--key K] [--start seconds] [--bars N] [--tempo-ratio R]
                        [--note TEXT] [--credit TEXT] [--fade MS] [--root DIR]
+
+--tempo-ratio R (0.5, 1, 1.5, 2; default 1) stretches the source to
+library_tempo * R instead of the library tempo, and cuts bars * R source bars,
+so the loop still lasts exactly the library loop. Use it for a source whose
+natural tempo is far from the library: 1.5 turns 150 BPM into a 100 BPM loop
+holding 12 source bars. bars * R must be an integer.
 
 Steps: load (resampled to 44.1 kHz) -> detect BPM / key / downbeat (or use flags)
 -> cut N bars from the downbeat at the source tempo -> one rubberband R3 pass:
@@ -38,6 +44,7 @@ TARGET_LUFS = -16.0
 LENGTH_TOL_S = 0.010        # rubberband may land a few samples off; trim/pad up to this
 PEAK_CEILING = 0.99         # limiter ceiling; check_library flags anything at or above 0.999
 DOWNBEAT_SNAP_S = 0.15      # snap the first strong onset to the nearest tracked beat if this close
+TEMPO_RATIOS = (0.5, 1.0, 1.5, 2.0)
 
 
 class PrepareError(Exception):
@@ -138,8 +145,8 @@ def save_manifest(m, path):
         f.write("\n".join(out) + "\n")
 
 
-def prepare(source, asset_id, title, *, bpm=None, key=None, start=None, bars=None, note="", credit="",
-            fade=5.0, root=ROOT, manifest=None, clip_id=None, log=print):
+def prepare(source, asset_id, title, *, bpm=None, key=None, start=None, bars=None, tempo_ratio=1.0,
+            note="", credit="", fade=5.0, root=ROOT, manifest=None, clip_id=None, log=print):
     """Prepare one clip. Returns (entry, manifest). Writes clips/<id>.wav and the
     master in sources/prepared/, but does NOT save the manifest: the caller decides
     where the entry goes and bumps the version."""
@@ -154,8 +161,15 @@ def prepare(source, asset_id, title, *, bpm=None, key=None, start=None, bars=Non
     if asset is None:
         raise PrepareError(f"unknown asset '{asset_id}'; choose one of {[x['id'] for x in m['assets']]}")
     bars = bars or m["bars"]
-    beats = bars * m["beats_per_bar"]
+    if tempo_ratio not in TEMPO_RATIOS:
+        raise PrepareError(f"tempo ratio must be one of {TEMPO_RATIOS}, got {tempo_ratio}")
+    src_bars_f = bars * tempo_ratio
+    if abs(src_bars_f - round(src_bars_f)) > 1e-9:
+        raise PrepareError(f"bars * tempo ratio = {bars} * {tempo_ratio} = {src_bars_f} is not a whole number of source bars")
+    src_bars = int(round(src_bars_f))
+    src_beats = src_bars * m["beats_per_bar"]
     lib_bpm, lib_key = float(m["tempo"]), fmt_key(m["key"])
+    target_bpm = lib_bpm * tempo_ratio          # the tempo the source is stretched to
     n_target = loop_samples(m, bars, CLIP_SR)
 
     # 1. load at the clip rate
@@ -184,11 +198,11 @@ def prepare(source, asset_id, title, *, bpm=None, key=None, start=None, bars=Non
     log(f"key           detected {det_key['key']} (confidence {det_key['confidence']:.3f}, margin {det_key['margin']:.3f})  ->  using {src_key}{'  [--key]' if key else ''}")
     log(f"downbeat      {start_s:.3f} s  ({start_how})")
 
-    # 3. cut N bars from the downbeat at the source tempo
-    n_src = int(round(beats * 60.0 / src_bpm * sr))
+    # 3. cut bars * ratio source bars from the downbeat at the source tempo
+    n_src = int(round(src_beats * 60.0 / src_bpm * sr))
     s0 = int(round(start_s * sr))
     if s0 + n_src > len(y):
-        raise PrepareError(f"source too short: need {n_src/sr:.2f} s from {start_s:.3f} s, have {(len(y)-s0)/sr:.2f} s. Try --start or fewer --bars.")
+        raise PrepareError(f"source too short: need {n_src/sr:.2f} s ({src_bars} source bars) from {start_s:.3f} s, have {(len(y)-s0)/sr:.2f} s. Try --start or fewer --bars.")
     cut = y[s0:s0 + n_src]
 
     # 4. one rubberband pass
@@ -202,7 +216,8 @@ def prepare(source, asset_id, title, *, bpm=None, key=None, start=None, bars=Non
     else:
         out = pyrb.time_stretch(cut, sr, rate, rbargs=rbargs)
     out = out[:, None] if out.ndim == 1 else out
-    log(f"stretch       ratio {lib_bpm/src_bpm:.5f}  ({src_bpm:.2f} -> {lib_bpm:.2f} BPM)")
+    log(f"stretch       ratio {target_bpm/src_bpm:.5f}  ({src_bpm:.2f} -> {target_bpm:.2f} BPM"
+        + (f" = library {lib_bpm:.0f} x {tempo_ratio:g}; {src_bars} source bars fill {bars} library bars" if tempo_ratio != 1 else "") + ")")
     log(f"pitch         {shift:+d} semitones  ({src_key} -> {lib_key}, relative-major-aware)")
 
     # 5. exact length, master, mono clip
@@ -227,8 +242,11 @@ def prepare(source, asset_id, title, *, bpm=None, key=None, start=None, bars=Non
              "source": os.path.basename(source), "credit": credit}
     if bars != m["bars"]:
         entry["bars"] = bars
-    log(f"\nsummary  {clip_id}: {src_bpm:.2f} BPM {src_key} -> {lib_bpm:.0f} BPM {lib_key}, "
-        f"stretch {lib_bpm/src_bpm:.4f}, shift {shift:+d} st, {after:.2f} LUFS, {rel}")
+    if tempo_ratio != 1:
+        entry["tempo_ratio"] = tempo_ratio
+    log(f"\nsummary  {clip_id}: {src_bpm:.2f} BPM {src_key} -> {target_bpm:.0f} BPM {lib_key}"
+        + (f" (library {lib_bpm:.0f} x {tempo_ratio:g})" if tempo_ratio != 1 else "")
+        + f", stretch {target_bpm/src_bpm:.4f}, shift {shift:+d} st, {after:.2f} LUFS, {rel}")
     return entry, m
 
 
@@ -237,6 +255,8 @@ def add_args(ap):
     ap.add_argument("--key", help="override detected source key, e.g. 'F# minor'")
     ap.add_argument("--start", type=float, help="override detected downbeat (seconds into the source)")
     ap.add_argument("--bars", type=int, help="override manifest default loop length")
+    ap.add_argument("--tempo-ratio", type=float, default=1.0, choices=TEMPO_RATIOS, dest="tempo_ratio",
+                    help="stretch to library tempo x R and cut bars x R source bars (0.5, 1, 1.5, 2)")
     ap.add_argument("--note", default="", help="one short line shown under the title in the picker")
     ap.add_argument("--credit", default="", help="performer / origin / licence")
     ap.add_argument("--fade", type=float, default=5.0, help="edge fade in ms (default 5; use ~30 for speech)")
@@ -252,7 +272,7 @@ def main():
     a = ap.parse_args()
     try:
         entry, m = prepare(a.source, a.asset, a.title, bpm=a.bpm, key=a.key, start=a.start, bars=a.bars,
-                           note=a.note, credit=a.credit, fade=a.fade, root=a.root)
+                           tempo_ratio=a.tempo_ratio, note=a.note, credit=a.credit, fade=a.fade, root=a.root)
     except PrepareError as e:
         sys.exit(f"error: {e}")
     asset = next(x for x in m["assets"] if x["id"] == a.asset)

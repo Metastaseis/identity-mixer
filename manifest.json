@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 4,
   "tempo": 100,
   "key": "D minor",
   "bars": 8,
@@ -11,7 +11,7 @@
       "color": "#f2c14e",
       "description": "איך העברית נשמעת אצלך — שפת אם, שפה נלמדת, שפה של תפילה.",
       "clips": [
-        { "id": "hebrew-01", "title": "דוגמה · מנגינה", "note": "", "file": "clips/hebrew-01.wav", "source": "prototype-synth", "credit": "צליל מסונתז, ממלא מקום", "bars": 4 }
+        { "id": "hebrew-01", "title": "אל אדון", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/hebrew-01.wav", "source": "midi/hebrew-banai-bed.mid", "credit": "עיבוד MIDI" }
       ]
     },
     {
@@ -20,7 +20,7 @@
       "color": "#4fb3e8",
       "description": "המקום, הנוף, הריח של הארץ.",
       "clips": [
-        { "id": "israel-02", "title": "התקווה", "note": "", "file": "clips/israel-02.wav", "source": "התקווה אנגלית-ישראל.wav", "credit": "הקלטה" }
+        { "id": "israel-02", "title": "התקווה", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/israel-02.wav", "source": "midi/israel-hatikva-full.mid", "credit": "עיבוד MIDI" }
       ]
     },
     {
@@ -29,7 +29,7 @@
       "color": "#8fd18a",
       "description": "מה מכוון אותך — צדק, חסד, אחריות, קהילה.",
       "clips": [
-        { "id": "values-01", "title": "דוגמה · כלי מיתר", "note": "", "file": "clips/values-01.wav", "source": "prototype-synth", "credit": "צליל מסונתז, ממלא מקום", "bars": 4 }
+        { "id": "values-01", "title": "למען אחי", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/values-01.wav", "source": "midi/values-carlebach-hemiola.mid", "credit": "עיבוד MIDI" }
       ]
     },
     {
@@ -38,7 +38,7 @@
       "color": "#e8865f",
       "description": "ספרים, מוזיקה, הומור, שיחה סביב השולחן.",
       "clips": [
-        { "id": "culture-02", "title": "ריקוד חסידי", "note": "", "file": "clips/culture-02.wav", "source": "ריקוד חסידי- תרבות.mp3", "credit": "הקלטה" }
+        { "id": "culture-02", "title": "ניגון ריקוד לשבת", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/culture-02.wav", "source": "midi/culture-shabbat-dance.mid", "credit": "עיבוד MIDI" }
       ]
     },
     {
@@ -47,7 +47,7 @@
       "color": "#c79ae6",
       "description": "מה מהעבר חי בך — סיפורים, ימי זיכרון, השם של סבתא.",
       "clips": [
-        { "id": "memory-02", "title": "עדות", "note": "", "file": "clips/memory-02.wav", "source": "עדות מטרזין-זכרון.mp3", "credit": "הקלטה" }
+        { "id": "memory-02", "title": "שמור וזכור", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/memory-02.wav", "source": "midi/memory-shamor-vezachor-squared.mid", "credit": "עיבוד MIDI" }
       ]
     },
     {
@@ -56,7 +56,7 @@
       "color": "#f0f0f0",
       "description": "שבת, חגים, כשרות, מנהגים — במידה שהם שלך.",
       "clips": [
-        { "id": "lifestyle-02", "title": "להדליק נר", "note": "", "file": "clips/lifestyle-02.wav", "source": "להדליק נר-עורכים חיים.wav", "credit": "הקלטה" }
+        { "id": "lifestyle-02", "title": "אשת חיל", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/lifestyle-02.wav", "source": "midi/lifestyle-eshet-chayil-perc.mid", "credit": "עיבוד MIDI" }
       ]
     }
   ]

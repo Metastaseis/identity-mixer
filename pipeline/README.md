@@ -35,7 +35,8 @@ count; committed) and a stereo 24-bit master in `sources/prepared/<asset>-NN.wav
 (git-ignored). Clips are WAV because MP3 cannot hold an exact loop length and
 would drift against the other channels. Override detection with `--bpm`,
 `--key` and `--start` when the analysis is wrong; `--bars` overrides the manifest default.
-Only 4 beats per bar is supported.
+`--tempo-ratio 1.5` (or 0.5, 2) stretches to library tempo × ratio and cuts bars × ratio
+source bars, for sources far from the library tempo. Only 4 beats per bar is supported.
 
 ## Managing the library
 

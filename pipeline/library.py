@@ -4,9 +4,9 @@ manifest.json's version so phones drop their saved clip choices.
 
 usage:
   library.py list
-  library.py add <source> --asset <id> --title <t> [--bpm N] [--key K] [--start S] [--bars N]
+  library.py add <source> --asset <id> --title <t> [--bpm N] [--key K] [--start S] [--bars N] [--tempo-ratio R]
                  [--note TEXT] [--credit TEXT] [--fade MS]
-  library.py replace <clip-id> <source> [--title <t>] [--bpm N] [--key K] [--start S] [--bars N]
+  library.py replace <clip-id> <source> [--title <t>] [--bpm N] [--key K] [--start S] [--bars N] [--tempo-ratio R]
                  [--note TEXT] [--credit TEXT] [--fade MS]
       prepares the source, then removes the old clip's file and manifest entry.
       The clip keeps its id and its position in the picker.
@@ -59,7 +59,8 @@ def cmd_list(a):
 
 
 def prep_kwargs(a):
-    return dict(bpm=a.bpm, key=a.key, start=a.start, bars=a.bars, note=a.note, credit=a.credit, fade=a.fade, root=a.root)
+    return dict(bpm=a.bpm, key=a.key, start=a.start, bars=a.bars, tempo_ratio=a.tempo_ratio,
+                note=a.note, credit=a.credit, fade=a.fade, root=a.root)
 
 
 def cmd_add(a):

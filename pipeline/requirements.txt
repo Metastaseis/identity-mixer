@@ -4,3 +4,4 @@ soundfile
 pyrubberband
 pyloudnorm
 numpy
+pretty_midi
