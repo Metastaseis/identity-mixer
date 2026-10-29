@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "tempo": 100,
   "key": "D minor",
   "bars": 8,
@@ -11,7 +11,12 @@
       "color": "#f2c14e",
       "description": "איך העברית נשמעת אצלך — שפת אם, שפה נלמדת, שפה של תפילה.",
       "clips": [
-        { "id": "hebrew-01", "title": "אל אדון", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/hebrew-01.wav", "source": "midi/hebrew-banai-bed.mid", "credit": "עיבוד MIDI" }
+        { "id": "hebrew-01", "title": "אל אדון", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/hebrew-01.wav", "source": "midi/hebrew-banai-bed.mid", "credit": "עיבוד MIDI", "stems_gain": 0.702,
+          "stems": [
+            { "id": "bass", "name": "בס", "file": "clips/stems/hebrew-banai-bed--bass.wav", "midi": "midi/stems/hebrew-banai-bed--bass.mid" },
+            { "id": "guitar", "name": "גיטרה", "file": "clips/stems/hebrew-banai-bed--guitar.wav", "midi": "midi/stems/hebrew-banai-bed--guitar.mid" }
+          ]
+        }
       ]
     },
     {
@@ -20,7 +25,13 @@
       "color": "#4fb3e8",
       "description": "המקום, הנוף, הריח של הארץ.",
       "clips": [
-        { "id": "israel-02", "title": "התקווה", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/israel-02.wav", "source": "midi/israel-hatikva-full.mid", "credit": "עיבוד MIDI" }
+        { "id": "israel-02", "title": "התקווה", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/israel-02.wav", "source": "midi/israel-hatikva-full.mid", "credit": "עיבוד MIDI", "stems_gain": 0.558,
+          "stems": [
+            { "id": "bass", "name": "בס", "file": "clips/stems/israel-hatikva-full--bass.wav", "midi": "midi/stems/israel-hatikva-full--bass.mid" },
+            { "id": "melody", "name": "מנגינה", "file": "clips/stems/israel-hatikva-full--melody.wav", "midi": "midi/stems/israel-hatikva-full--melody.mid" },
+            { "id": "pad", "name": "הרמוניה", "file": "clips/stems/israel-hatikva-full--pad.wav", "midi": "midi/stems/israel-hatikva-full--pad.mid" }
+          ]
+        }
       ]
     },
     {
@@ -29,7 +40,12 @@
       "color": "#8fd18a",
       "description": "מה מכוון אותך — צדק, חסד, אחריות, קהילה.",
       "clips": [
-        { "id": "values-01", "title": "למען אחי", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/values-01.wav", "source": "midi/values-carlebach-hemiola.mid", "credit": "עיבוד MIDI" }
+        { "id": "values-01", "title": "למען אחי", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/values-01.wav", "source": "midi/values-carlebach-hemiola.mid", "credit": "עיבוד MIDI", "stems_gain": 0.698,
+          "stems": [
+            { "id": "bass", "name": "בס", "file": "clips/stems/values-carlebach-hemiola--bass.wav", "midi": "midi/stems/values-carlebach-hemiola--bass.mid" },
+            { "id": "pad", "name": "הרמוניה", "file": "clips/stems/values-carlebach-hemiola--pad.wav", "midi": "midi/stems/values-carlebach-hemiola--pad.mid" }
+          ]
+        }
       ]
     },
     {
@@ -38,7 +54,13 @@
       "color": "#e8865f",
       "description": "ספרים, מוזיקה, הומור, שיחה סביב השולחן.",
       "clips": [
-        { "id": "culture-02", "title": "ניגון ריקוד לשבת", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/culture-02.wav", "source": "midi/culture-shabbat-dance.mid", "credit": "עיבוד MIDI" }
+        { "id": "culture-02", "title": "ניגון ריקוד לשבת", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/culture-02.wav", "source": "midi/culture-shabbat-dance.mid", "credit": "עיבוד MIDI", "stems_gain": 0.563,
+          "stems": [
+            { "id": "accordion", "name": "אקורדיון", "file": "clips/stems/culture-shabbat-dance--accordion.wav", "midi": "midi/stems/culture-shabbat-dance--accordion.mid" },
+            { "id": "clarinet", "name": "מנגינה (קלרינט)", "file": "clips/stems/culture-shabbat-dance--clarinet.wav", "midi": "midi/stems/culture-shabbat-dance--clarinet.mid" },
+            { "id": "tuba", "name": "בס (טובה)", "file": "clips/stems/culture-shabbat-dance--tuba.wav", "midi": "midi/stems/culture-shabbat-dance--tuba.mid" }
+          ]
+        }
       ]
     },
     {
@@ -47,7 +69,13 @@
       "color": "#c79ae6",
       "description": "מה מהעבר חי בך — סיפורים, ימי זיכרון, השם של סבתא.",
       "clips": [
-        { "id": "memory-02", "title": "שמור וזכור", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/memory-02.wav", "source": "midi/memory-shamor-vezachor-squared.mid", "credit": "עיבוד MIDI" }
+        { "id": "memory-02", "title": "שמור וזכור", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/memory-02.wav", "source": "midi/memory-shamor-vezachor-squared.mid", "credit": "עיבוד MIDI", "stems_gain": 0.57,
+          "stems": [
+            { "id": "bass", "name": "בס", "file": "clips/stems/memory-shamor-vezachor-squared--bass.wav", "midi": "midi/stems/memory-shamor-vezachor-squared--bass.mid" },
+            { "id": "guitar", "name": "גיטרה", "file": "clips/stems/memory-shamor-vezachor-squared--guitar.wav", "midi": "midi/stems/memory-shamor-vezachor-squared--guitar.mid" },
+            { "id": "melody", "name": "מנגינה", "file": "clips/stems/memory-shamor-vezachor-squared--melody.wav", "midi": "midi/stems/memory-shamor-vezachor-squared--melody.mid" }
+          ]
+        }
       ]
     },
     {
@@ -56,7 +84,13 @@
       "color": "#f0f0f0",
       "description": "שבת, חגים, כשרות, מנהגים — במידה שהם שלך.",
       "clips": [
-        { "id": "lifestyle-02", "title": "אשת חיל", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/lifestyle-02.wav", "source": "midi/lifestyle-eshet-chayil-perc.mid", "credit": "עיבוד MIDI" }
+        { "id": "lifestyle-02", "title": "אשת חיל", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/lifestyle-02.wav", "source": "midi/lifestyle-eshet-chayil-perc.mid", "credit": "עיבוד MIDI", "stems_gain": 0.592,
+          "stems": [
+            { "id": "bass", "name": "בס", "file": "clips/stems/lifestyle-eshet-chayil-perc--bass.wav", "midi": "midi/stems/lifestyle-eshet-chayil-perc--bass.mid" },
+            { "id": "darbuka", "name": "דרבוקה", "file": "clips/stems/lifestyle-eshet-chayil-perc--darbuka.wav", "midi": "midi/stems/lifestyle-eshet-chayil-perc--darbuka.mid" },
+            { "id": "melody", "name": "מנגינה", "file": "clips/stems/lifestyle-eshet-chayil-perc--melody.wav", "midi": "midi/stems/lifestyle-eshet-chayil-perc--melody.mid" }
+          ]
+        }
       ]
     }
   ]

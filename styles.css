@@ -22,6 +22,13 @@ main{flex:1;display:flex;flex-direction:column;padding:6px 10px 0}
 .name{margin-top:8px;text-align:center;font-weight:800;font-size:.95rem;line-height:1.15;min-height:2.3em}
 .clip{text-align:center;font-size:.72rem;color:var(--ink-dim);line-height:1.2;margin-top:2px;background:none;border:0;color:var(--ink-dim);font-family:inherit;padding:2px 0;width:100%}
 .clip u{text-decoration-color:var(--line)}
+.load{display:none;font-size:.68rem;color:var(--ink-dim);text-align:center;min-height:1.1em;margin-top:2px}
+.ch.loading .load{display:block}
+.ch.loading .clip{opacity:.6}
+.stems{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;margin-top:4px}
+.stem{flex:1 1 100%;min-height:36px;padding:0 4px;border-radius:18px;border:1px solid var(--line);background:var(--bg2);color:var(--ink-dim);font:500 .68rem "Heebo",sans-serif;line-height:1.1;cursor:pointer}
+.stem[aria-pressed="true"]{background:var(--c);border-color:var(--c);color:var(--bg)}
+.stem:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 footer{position:sticky;bottom:0;padding:10px 12px calc(env(safe-area-inset-bottom) + 12px);background:linear-gradient(to top,var(--bg) 70%,transparent);display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
 .play{height:62px;border:0;border-radius:31px;background:var(--play);color:var(--play-ink);font:800 1.25rem "Heebo",sans-serif;cursor:pointer}
 .play[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
@@ -44,4 +51,4 @@ dialog p{margin:0 0 12px;color:var(--ink-dim);font-size:.9rem;line-height:1.5}
 .profile svg{max-width:100%;height:auto}
 .status{font-size:.8rem;color:var(--ink-dim);text-align:center;padding:4px 0 0;min-height:1.2em}
 @media (prefers-reduced-motion: reduce){ .fill{transition:none} }
-@media (min-width:700px){ .board{gap:14px} .fader{min-height:340px} main{padding:10px 24px 0} }
+@media (min-width:700px){ .board{gap:14px} .fader{min-height:340px} main{padding:10px 24px 0} .stem{flex:0 1 auto;padding:0 12px;font-size:.8rem} }

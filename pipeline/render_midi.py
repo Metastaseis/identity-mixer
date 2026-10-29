@@ -3,6 +3,8 @@
 
 usage: render_midi.py <midi> <out.wav> [--bpm N] [--bars N] [--beats-per-bar N]
                       [--transpose ST] [--lufs L] [--root DIR]
+       render_midi.py <midi> <out-dir> --stems [same flags]
+           one <base>--<track>.mid and .wav per track, for per-clip stems
 
 Tempo, bars and beats per bar default to manifest.json in the repo root
 (--root, default: this repo). The flags override them. The MIDI is expected to
@@ -151,10 +153,36 @@ def render(midi, out, bpm, bars, beats_per_bar, *, transpose=0, lufs=-16.0, subt
     return y, info
 
 
+def split_stems(midi, out_dir, bpm, bars, beats_per_bar, *, transpose=0, lufs=-16.0, log=print):
+    """Write one .mid and one rendered .wav per track of `midi` into out_dir, named
+    <base>--<stem>.mid / .wav (stem = the track name, lower-case, spaces as dashes;
+    'drums' or 'progNN' when unnamed). Each stem is normalised on its own, so the
+    pipeline's stems_gain is what makes them sum to the library loudness.
+    Returns [(stem, mid_path, wav_path)]."""
+    import copy
+    pm = pretty_midi.PrettyMIDI(midi)
+    base = os.path.splitext(os.path.basename(midi))[0]
+    tempi = pm.get_tempo_changes()[1]
+    tempo = float(tempi[0]) if len(tempi) else 120.0
+    os.makedirs(out_dir, exist_ok=True)
+    done = []
+    for inst in pm.instruments:
+        stem = (inst.name or ("drums" if inst.is_drum else f"prog{inst.program}")).lower().replace(" ", "-")
+        one = pretty_midi.PrettyMIDI(initial_tempo=tempo)
+        one.instruments.append(copy.deepcopy(inst))
+        mid_path = os.path.join(out_dir, f"{base}--{stem}.mid")
+        one.write(mid_path)
+        wav_path = os.path.join(out_dir, f"{base}--{stem}.wav")
+        render(mid_path, wav_path, bpm, bars, beats_per_bar, transpose=transpose, lufs=lufs, log=log)
+        done.append((stem, mid_path, wav_path))
+    return done
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("midi")
-    ap.add_argument("out")
+    ap.add_argument("out", help="output .wav, or with --stems the output directory")
+    ap.add_argument("--stems", action="store_true", help="write one .mid and .wav per track into the out directory")
     ap.add_argument("--bpm", type=float, help="library tempo (default: manifest.json)")
     ap.add_argument("--bars", type=int, help="loop length in bars (default: manifest.json)")
     ap.add_argument("--beats-per-bar", type=int, dest="beats_per_bar", help="default: manifest.json")
@@ -172,7 +200,10 @@ def main():
     if a.bpm is not None: bpm = a.bpm
     if a.bars is not None: bars = a.bars
     if a.beats_per_bar is not None: bpb = a.beats_per_bar
-    render(a.midi, a.out, bpm, bars, bpb, transpose=a.transpose, lufs=a.lufs)
+    if a.stems:
+        split_stems(a.midi, a.out, bpm, bars, bpb, transpose=a.transpose, lufs=a.lufs)
+    else:
+        render(a.midi, a.out, bpm, bars, bpb, transpose=a.transpose, lufs=a.lufs)
 
 
 if __name__ == "__main__":

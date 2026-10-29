@@ -18,8 +18,8 @@ pip install -r pipeline/requirements.txt
 | `analyze.py`       | BPM, key + confidence, LUFS, duration, first strong onset. `--json` too |
 | `prepare_clip.py`  | Source → exact-loop clip at the manifest tempo/key/loudness + manifest entry |
 | `library.py`       | `list`, `add`, `replace`, `remove` clips. Every change bumps the manifest version |
-| `render_midi.py`   | `.mid` → exact loop at the manifest tempo/bars/beats, −16 LUFS. Used by `--midi` |
-| `check_library.py` | Verify every clip: length, loudness, clipping, manifest shape. Exit 0 = green |
+| `render_midi.py`   | `.mid` → exact loop at the manifest tempo/bars/beats, −16 LUFS. Used by `--midi`. `--stems` writes one `.mid` + `.wav` per track |
+| `check_library.py` | Verify every clip and stem: length, loudness, clipping, manifest shape. Exit 0 = green |
 
 ## Example
 

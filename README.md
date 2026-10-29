@@ -66,6 +66,14 @@ python pipeline/library.py add --midi midi/<name>.mid --asset <id> --title "<tit
     --note "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור" --credit "עיבוד MIDI"
 ```
 
+Stems: a MIDI clip can also list per-instrument loops (`"stems"` in the manifest,
+WAVs under `clips/stems/`, MIDI under `midi/stems/`). The player then plays the stems
+instead of the full file, all started together, and each chip under the channel
+switches one of them on or off without touching the others. `render_midi.py
+midi/<name>.mid sources/stems --stems` writes one `.mid` and `.wav` per track; the
+manifest's `stems_gain` (computed by the pipeline, checked by `check_library.py`)
+trims them so that all stems together are as loud as a plain clip.
+
 `render_midi.py` reads tempo, bars and beats per bar from `manifest.json`, so after a
 tempo or loop-length change re-render every MIDI clip with `replace --midi` and the
 library stays in sync. The renderer does not shift pitch: after a key change,

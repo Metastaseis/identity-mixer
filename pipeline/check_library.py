@@ -10,6 +10,10 @@ Checks:
     decoder-dependent trimming), so an MP3 loop drifts against the others.
   * loudness: integrated LUFS within -16 ± 1
   * clipping: any sample at or above 0.999 full scale
+  * stems (optional per clip): fields, unique ids, WAV exists and has exactly the
+    clip's loop length, the .mid exists, and the stems summed at the clip's
+    stems_gain sit within -16 ± 1 LUFS without touching full scale (the player
+    plays the stems at that gain instead of the full file)
 
 usage: check_library.py [--root DIR]
 """
@@ -23,6 +27,7 @@ from analyze import load_audio, integrated_loudness, peak_dbfs  # noqa: E402
 CANON = [("hebrew", "השפה העברית"), ("israel", "ישראל"), ("values", "עולם ערכים"),
          ("culture", "תרבות"), ("memory", "זיכרון היסטורי"), ("lifestyle", "אורח חיים")]
 CLIP_FIELDS = ["id", "title", "note", "file", "source", "credit"]
+STEM_FIELDS = ["id", "name", "file", "midi"]
 ASSET_FIELDS = ["id", "name", "color", "description", "clips"]
 TARGET_LUFS, LUFS_TOL = -16.0, 1.0
 CLIP_LEVEL = 0.999
@@ -99,6 +104,77 @@ def check_clip(m, a, c, root, errors):
             "lufs": lufs, "peak_db": pk_db, "ok": not problems}
 
 
+def check_stems(m, c, root, errors):
+    """Rows for each stem of clip c plus one for their trimmed sum; [] if the clip has no stems."""
+    cid = c.get("id", "?")
+    stems = c.get("stems")
+    if stems is None:
+        return []
+    if not isinstance(stems, list) or not stems:
+        errors.append(f"clip {cid}: 'stems' must be a non-empty list")
+        return []
+    gain = c.get("stems_gain")
+    if not isinstance(gain, (int, float)) or gain <= 0:
+        errors.append(f"clip {cid}: stems need a positive 'stems_gain' (the trim that brings their sum to {TARGET_LUFS} LUFS)")
+        gain = 1.0
+    bars = c.get("bars", m["bars"])
+    rows, total, total_sr, ids = [], None, None, set()
+    for s in stems:
+        sid = s.get("id", "?")
+        for k in STEM_FIELDS:
+            if k not in s:
+                errors.append(f"clip {cid} stem {sid}: missing '{k}'")
+        if sid in ids:
+            errors.append(f"clip {cid}: duplicate stem id '{sid}'")
+        ids.add(sid)
+        midi = s.get("midi", "")
+        if midi and not os.path.isfile(os.path.join(root, midi)):
+            errors.append(f"clip {cid} stem {sid}: midi not found: {midi}")
+        path = s.get("file", "")
+        if os.path.splitext(path)[1].lower() != ".wav":
+            errors.append(f"clip {cid} stem {sid}: only WAV stems are allowed; got {path}")
+            continue
+        full = os.path.join(root, path)
+        if not os.path.isfile(full):
+            errors.append(f"clip {cid} stem {sid}: file not found: {path}")
+            continue
+        try:
+            y, sr = load_audio(full)
+        except Exception as e:
+            errors.append(f"clip {cid} stem {sid}: cannot decode {path}: {e}")
+            continue
+        n, exp = len(y), int(round(bars * m["beats_per_bar"] * 60.0 / m["tempo"] * sr))
+        problems = []
+        if n != exp:
+            problems.append(f"length {n} samples, expected exactly {exp} ({bars} bars @ {m['tempo']} BPM, {sr} Hz), Δ {n-exp:+d}")
+        if total_sr not in (None, sr):
+            problems.append(f"sample rate {sr} differs from the other stems ({total_sr})")
+        for p in problems:
+            errors.append(f"clip {cid} stem {sid}: {p}")
+        pk_db, _ = peak_dbfs(y)
+        rows.append({"path": path, "sr": sr, "ch": y.shape[1], "n": n, "exp": exp, "delta": n - exp,
+                     "lufs": integrated_loudness(y, sr), "peak_db": pk_db, "ok": not problems})
+        if not problems:
+            mono = y.mean(axis=1, keepdims=True) if y.shape[1] > 1 else y
+            total = mono if total is None else total + mono
+            total_sr = sr
+    if total is not None and len(rows) == len(stems):
+        mix = total * gain
+        lufs = integrated_loudness(mix, total_sr)
+        pk_db, _ = peak_dbfs(mix)
+        problems = []
+        if np.isnan(lufs) or abs(lufs - TARGET_LUFS) > LUFS_TOL:
+            problems.append(f"stems summed at stems_gain {gain:g} are {lufs:.2f} LUFS, outside {TARGET_LUFS} ± {LUFS_TOL}")
+        clipped = int(np.sum(np.abs(mix) >= CLIP_LEVEL))
+        if clipped:
+            problems.append(f"stems summed at stems_gain {gain:g} clip: {clipped} sample(s) at or above {CLIP_LEVEL} FS")
+        for p in problems:
+            errors.append(f"clip {cid}: {p}")
+        rows.append({"path": f"  = {len(stems)} stems x {gain:g}", "sr": total_sr, "ch": 1, "n": len(mix), "exp": len(mix),
+                     "delta": 0, "lufs": lufs, "peak_db": pk_db, "ok": not problems})
+    return rows
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--root", default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -113,21 +189,26 @@ def main():
         print("\n".join(errors)); sys.exit(1)
 
     print(f"library v{m['version']}: tempo {m['tempo']} BPM, key {m['key']}, {m['bars']} bars, {m['beats_per_bar']}/4")
-    print(f"{'clip':24s} {'sr':>6s} {'ch':>2s} {'samples':>8s} {'Δ':>4s} {'LUFS':>7s} {'peak':>7s}  status")
-    rows = []
+    W = 50
+    print(f"{'clip / stem':{W}s} {'sr':>6s} {'ch':>2s} {'samples':>8s} {'Δ':>4s} {'LUFS':>7s} {'peak':>7s}  status")
+    rows, stem_rows = [], 0
     for asset in m["assets"]:
         for c in asset.get("clips", []):
             r = check_clip(m, asset, c, root, errors)
             if r:
                 rows.append(r)
-                print(f"{r['path']:24s} {r['sr']:6d} {r['ch']:2d} {r['n']:8d} {r['delta']:+4d} "
+                print(f"{r['path']:{W}s} {r['sr']:6d} {r['ch']:2d} {r['n']:8d} {r['delta']:+4d} "
                       f"{r['lufs']:7.2f} {r['peak_db']:7.2f}  {'ok' if r['ok'] else 'FAIL'}")
+            for s in check_stems(m, c, root, errors):
+                stem_rows += not s["path"].startswith("  =")
+                print(f"  {s['path']:{W-2}s} {s['sr']:6d} {s['ch']:2d} {s['n']:8d} {s['delta']:+4d} "
+                      f"{s['lufs']:7.2f} {s['peak_db']:7.2f}  {'ok' if s['ok'] else 'FAIL'}")
     if errors:
         print()
         print("\n".join(errors))
         print(f"\n{len(errors)} problem(s)")
         sys.exit(1)
-    print(f"\ngreen: {len(rows)} clip(s)")
+    print(f"\ngreen: {len(rows)} clip(s), {stem_rows} stem(s)")
 
 
 if __name__ == "__main__":

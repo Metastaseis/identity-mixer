@@ -146,7 +146,17 @@ def save_manifest(m, path):
         out.append('      "clips": [')
         for ci, c in enumerate(a["clips"]):
             comma = "," if ci < len(a["clips"]) - 1 else ""
-            out.append(f"        {{ {json.dumps(c, ensure_ascii=False)[1:-1]} }}{comma}")
+            stems = c.get("stems")
+            if not stems:
+                out.append(f"        {{ {json.dumps(c, ensure_ascii=False)[1:-1]} }}{comma}")
+                continue
+            head = {k: v for k, v in c.items() if k != "stems"}      # stems go last, one per line
+            out.append(f"        {{ {json.dumps(head, ensure_ascii=False)[1:-1]},")
+            out.append('          "stems": [')
+            for si, s in enumerate(stems):
+                out.append(f"            {{ {json.dumps(s, ensure_ascii=False)[1:-1]} }}" + ("," if si < len(stems) - 1 else ""))
+            out.append("          ]")
+            out.append(f"        }}{comma}")
         out.append("      ]")
         out.append("    }" + ("," if ai < len(m["assets"]) - 1 else ""))
     out.append("  ]")

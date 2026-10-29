@@ -70,6 +70,8 @@ Each clip:
 | `credit` | string | Performer / origin / licence note                         |
 | `bars`   | number | Optional. Loop length override for this clip              |
 | `tempo_ratio` | number | Optional. Source was stretched to tempo × this (0.5, 1.5, 2) |
+| `stems`  | array  | Optional. `[{ id, name, file, midi }]`: per-instrument loops of the same length under `clips/stems/`, their MIDI under `midi/stems/`. The player then plays the stems instead of `file`, all started at the shared time, each behind its own on/off gain that feeds the channel fader. `name` is the Hebrew chip label |
+| `stems_gain` | number | Required with `stems`. Linear trim applied to every stem so that all stems together sit at −16 LUFS like a plain clip (each stem is normalised on its own, so their sum is louder). Computed by the pipeline, verified by `check_library.py` |
 
 Example with one asset:
 
