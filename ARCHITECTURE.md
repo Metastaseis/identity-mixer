@@ -2,7 +2,7 @@
 
 ## Product summary
 
-Identity Mixer is a phone-first, Hebrew (RTL) static web app for מכינה workshops. Six mixer channels stand for six assets of Jewish identity: השפה העברית, ישראל, עולם ערכים, תרבות, זיכרון היסטורי, אורח חיים. A participant picks one clip per asset from a curated audio library, sets each fader to how strongly that asset lives in them, and hears all six loop together in sync and in key. The fader positions become a six-axis "profile" shape the participant can share with the facilitator.
+Identity Mixer is a phone-first, Hebrew (RTL) static web app for מכינה workshops. Six mixer channels stand for six assets of Jewish identity: עברית, ישראל, עולם ערכים, תרבות, זכרון הסטורי, אורח חיים. A participant picks one clip per asset from a curated audio library, sets each fader to how strongly that asset lives in them, and hears all six loop together in sync and in key. The fader positions become a six-axis "profile" shape the participant can share with the facilitator.
 
 ## Design invariants
 
@@ -84,7 +84,7 @@ Example with one asset:
   "assets": [
     {
       "id": "hebrew",
-      "name": "השפה העברית",
+      "name": "עברית",
       "color": "#3A7BD5",
       "description": "המילים שבהן אנחנו חושבים, שרים ומתווכחים.",
       "clips": [

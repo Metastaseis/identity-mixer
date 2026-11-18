@@ -59,12 +59,17 @@ MIDI because the render wraps its tail across the loop seam. `source` in the
 manifest records the MIDI path, e.g. `midi/israel-hatikva-full.mid`. See the
 "MIDI clips" section of the top-level README for the workflow.
 
+A melody track that carries pitch-bend or expression (CC11) is rendered as a
+sung line: notes that touch are tied, the pitch follows note + bend (bend range
+from RPN 0, else 2 semitones) and the level follows CC11. A melody track
+without them renders exactly as before.
+
 `replace` keeps the clip id and its position in the picker, so the participant's
 choice stays valid. `remove` refuses to delete an asset's last clip. Every command
 bumps `version` in `manifest.json`, which makes phones drop their saved clip
 choices (fader levels survive). Run `check_library.py` afterwards.
 
-Replace the placeholder for השפה העברית with a new source:
+Replace the placeholder for עברית with a new source:
 
 ```sh
 python pipeline/library.py replace hebrew-01 "sources/<file>" --title "<title>" --credit "<credit>"

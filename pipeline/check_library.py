@@ -24,8 +24,8 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from analyze import load_audio, integrated_loudness, peak_dbfs  # noqa: E402
 
-CANON = [("hebrew", "השפה העברית"), ("israel", "ישראל"), ("values", "עולם ערכים"),
-         ("culture", "תרבות"), ("memory", "זיכרון היסטורי"), ("lifestyle", "אורח חיים")]
+CANON = [("hebrew", "עברית"), ("israel", "ישראל"), ("values", "עולם ערכים"),
+         ("culture", "תרבות"), ("memory", "זכרון הסטורי"), ("lifestyle", "אורח חיים")]
 CLIP_FIELDS = ["id", "title", "note", "file", "source", "credit"]
 STEM_FIELDS = ["id", "name", "file", "midi"]
 ASSET_FIELDS = ["id", "name", "color", "description", "clips"]

@@ -14,6 +14,9 @@ by whole semitones if it is not.
 Track names (or GM programs) pick a voice: melody/lead/clarinet -> lead,
 bass/tuba -> pluck, guitar/accordion -> strum, pad -> pad, a drum track ->
 dum/tak. Note starts are re-timed from the MIDI tempo to the library tempo.
+A lead track that carries pitch-bend or expression (CC11) is played as a sung
+line: notes that touch are tied, the pitch follows note + bend (bend range from
+RPN 0, else 2 semitones) and the level follows CC11.
 Loop length = bars * beats_per_bar beats at that tempo; the tail that spills
 past the loop is wrapped to the start so the seam is clean. Output is mono
 44.1 kHz at --lufs (default -16) with peaks held under 0.95.
@@ -82,6 +85,61 @@ def drum(pitch, amp, rng):
 
 
 VOICES = {"lead": (lead, 0.22), "pluck": (pluck, 0.8), "strum": (strum, 0.06), "pad": (pad, 0.08)}
+GLIDE = 0.010      # s: smoothing of the pitch and level curves of a sung line
+TIE = 0.004        # s: a note starting this close to the end of the one before is tied to it
+
+
+def bend_range(inst):
+    """Pitch-bend range in semitones from an RPN 0 message (CC101=0, CC100=0, then CC6); 2 if there is none."""
+    rng, msb, lsb = 2.0, None, None
+    for c in sorted(inst.control_changes, key=lambda c: c.time):
+        if c.number == 101: msb = c.value
+        elif c.number == 100: lsb = c.value
+        elif c.number == 6 and msb == 0 and lsb == 0: rng = float(c.value)
+    return rng
+
+
+def held(events, t, default):
+    """Sample-and-hold value at times t of (time, value) events sorted by time; `default` before the first."""
+    if not events:
+        return np.full(len(t), default)
+    et = np.array([e[0] for e in events]); ev = np.array([e[1] for e in events], dtype=float)
+    i = np.searchsorted(et, t, side="right") - 1
+    return np.where(i >= 0, ev[np.maximum(i, 0)], default)
+
+
+def smooth(x, n):
+    if n < 2 or len(x) < 2:
+        return x
+    k = np.ones(n) / n
+    return np.convolve(np.concatenate([np.full(n, x[0]), x, np.full(n, x[-1])]), k, mode="same")[n:-n]
+
+
+def sung_line(inst, scale, loop, transpose, base):
+    """[(start, signal)] for a lead track with pitch-bend / expression: one signal per chain of tied notes."""
+    notes = sorted(inst.notes, key=lambda n: n.start)
+    rng = bend_range(inst)
+    bends = sorted((b.time * scale, b.pitch / 8192.0 * rng) for b in inst.pitch_bends)
+    expr = sorted((c.time * scale, c.value / 127.0) for c in inst.control_changes if c.number == 11)
+    chains = []
+    for n in notes:
+        if n.start * scale >= loop:
+            continue
+        if chains and n.start * scale <= chains[-1][-1].end * scale + TIE: chains[-1].append(n)
+        else: chains.append([n])
+    out = []
+    for ch in chains:
+        t0, t1 = ch[0].start * scale, max(n.end for n in ch) * scale
+        m = max(8, int((t1 - t0) * SR)); t = t0 + np.arange(m) / SR
+        pitch = held([(n.start * scale, n.pitch) for n in ch], t, ch[0].pitch) + held(bends, t, 0.0) + transpose
+        k = int(GLIDE * SR)
+        f = freq(smooth(pitch, k))
+        ph = 2 * np.pi * np.cumsum(f) / SR
+        vel = held([(n.start * scale, n.velocity / 100.0) for n in ch], t, ch[0].velocity / 100.0)
+        level = smooth(vel * held(expr, t, 1.0), k)
+        sig = base * level * env_ar(m, 0.012, min(0.04, (t1 - t0) / 4)) * (np.sin(ph) + 0.4 * np.sin(2 * ph) + 0.2 * np.sin(3 * ph) + 0.08 * np.sin(4 * ph))
+        out.append((t0, sig))
+    return out
 
 
 def pick_voice(inst):
@@ -127,6 +185,10 @@ def render(midi, out, bpm, bars, beats_per_bar, *, transpose=0, lufs=-16.0, subt
                     add(n.start * scale, drum(n.pitch, 0.5 * n.velocity / 100, rng))
             continue
         fn, base = VOICES[pick_voice(inst)]
+        if fn is lead and (inst.pitch_bends or any(c.number == 11 for c in inst.control_changes)):
+            for start, sig in sung_line(inst, scale, loop, transpose, base):
+                add(start, sig)
+            continue
         for n in inst.notes:
             st = n.start * scale
             if st >= loop:
