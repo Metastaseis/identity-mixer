@@ -80,7 +80,7 @@ async function ensureAudio() {           // only ever reached from the play tap
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     masterGain = ctx.createGain(); masterGain.gain.value = master; masterGain.connect(ctx.destination);
   }
-  if (ctx.state === "suspended") await ctx.resume();
+  if (ctx.state !== "running") await ctx.resume();   // "suspended", or iOS "interrupted" after a call or backgrounding
 }
 function decodeWith(c, bytes) {          // promise or callback form, whichever this browser has
   return new Promise((resolve, reject) => {
@@ -174,7 +174,7 @@ async function swapClip(i) {   // replace one channel in place, aligned to the s
   if (c.clip !== clipOf(i) || !playing) return;   // superseded by a later pick, or stopped meanwhile
   const old = chans[i];
   const t = ctx.currentTime + SWAP_LEAD;
-  const offset = (t - startTime) % c.L;          // where this clip's loop is on the grid at time t
+  const offset = (((t - startTime) % c.L) + c.L) % c.L;   // where this clip's loop is on the grid at time t (never negative, even before the shared start)
   c.sources.forEach(s => s.src.start(t, offset));
   if (old) old.sources.forEach(s => { try { s.src.stop(t); } catch (e) {} });
   chans[i] = c;
@@ -247,11 +247,12 @@ function buildBoard() {
     const pct = Math.round(state[i].level * 100);
     ch.innerHTML = `<div class="fader" role="slider" tabindex="0" aria-label="${a.name}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
         <div class="fill" style="height:${state[i].level * 100}%"></div><div class="val">${pct}</div></div>
-      <div class="name">${a.name}</div>
-      <button class="clip" data-i="${i}"><u>${clipOf(i).title}</u></button>
+      <button class="name" data-i="${i}">${a.name}</button>
+      <div class="pick"><span class="clip"></span><select class="song" data-i="${i}" aria-label="שיר · ${a.name}"></select></div>
       <div class="load" aria-live="polite"></div>
       <div class="stems" data-i="${i}" role="group" aria-label="כלים · ${a.name}"></div>`;
     board.appendChild(ch);
+    renderSongs(i);
     renderStems(i);
     const fader = ch.querySelector(".fader"), fill = ch.querySelector(".fill"), val = ch.querySelector(".val");
     const render = () => { const p = Math.round(state[i].level * 100); fill.style.height = (state[i].level * 100) + "%"; val.textContent = p; fader.setAttribute("aria-valuenow", p); };
@@ -267,6 +268,20 @@ function buildBoard() {
       if (e.key === "ArrowDown") { setLevel(i, Math.max(0, state[i].level - step)); render(); persist(); e.preventDefault(); }
     });
   });
+}
+// The song dropdown under a column: one option per clip of the asset. The visible label
+// wraps the selected title; the native select sits invisibly on top of it and opens the
+// phone's own menu. An asset with a single clip shows its title with no menu.
+function renderSongs(i) {
+  const pick = board.children[i].querySelector(".pick");
+  const sel = pick.querySelector(".song"), label = pick.querySelector(".clip");
+  const clips = ASSETS[i].clips;
+  sel.innerHTML = "";
+  clips.forEach((c, k) => sel.appendChild(new Option(c.title, k)));
+  sel.value = state[i].clip;
+  sel.disabled = clips.length < 2;
+  pick.classList.toggle("single", clips.length < 2);
+  label.textContent = clipOf(i).title;
 }
 // One toggle chip per stem of the channel's selected clip; nothing for a clip without stems.
 function renderStems(i) {
@@ -288,7 +303,7 @@ function setLoading(i, on, failed) {
   const el = ch.querySelector(".load"); if (el) el.textContent = failed ? "הטעינה נכשלה" : "טוען…";
 }
 
-// stem chips and clip picker
+// stem chips and asset description
 const picker = document.getElementById("picker");
 board.addEventListener("click", e => {
   const chip = e.target.closest(".stem");
@@ -298,18 +313,21 @@ board.addEventListener("click", e => {
     setStem(+chip.dataset.i, chip.dataset.stem, on);
     return;
   }
-  const b = e.target.closest(".clip"); if (!b) return;
-  const i = +b.dataset.i; const a = ASSETS[i];
+  const b = e.target.closest(".name"); if (!b) return;
+  const a = ASSETS[+b.dataset.i];
   document.getElementById("pickerTitle").textContent = a.name;
-  document.getElementById("pickerDesc").textContent = a.description + (a.clips.length === 1 ? " (בגרסה הזו יש קטע אחד לכל נכס.)" : " בחרו את הקטע שמתאר אתכם.");
-  const list = document.getElementById("choices"); list.innerHTML = "";
-  a.clips.forEach((c, k) => {
-    const btn = document.createElement("button"); btn.className = "choice"; btn.setAttribute("aria-pressed", k === state[i].clip);
-    btn.innerHTML = `${c.title}${c.note ? `<small>${c.note}</small>` : ""}`;
-    btn.onclick = async () => { state[i].clip = k; persist(); b.innerHTML = `<u>${c.title}</u>`; list.querySelectorAll(".choice").forEach(x => x.setAttribute("aria-pressed", x === btn)); await swapClip(i); };
-    list.appendChild(btn);
-  });
+  document.getElementById("pickerDesc").textContent = a.description;
   picker.showModal();
+});
+// song dropdown: pick a song, the channel swaps in place on the shared bar grid
+board.addEventListener("change", async e => {
+  const sel = e.target.closest(".song"); if (!sel) return;
+  const i = +sel.dataset.i, k = +sel.value;
+  if (!ASSETS[i].clips[k] || k === state[i].clip) return;
+  state[i].clip = k; persist();
+  sel.parentElement.querySelector(".clip").textContent = clipOf(i).title;
+  try { await swapClip(i); }
+  catch (err) { status.textContent = "לא הצלחתי להחליף שיר. נסו שוב."; console.error(err); }
 });
 document.getElementById("pickerClose").onclick = () => picker.close();
 
