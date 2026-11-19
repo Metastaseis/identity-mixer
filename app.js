@@ -44,18 +44,23 @@ const clipFiles = clip => hasStems(clip) ? [clip.file, ...clip.stems.map(s => s.
 // ---------- state ----------
 // Saved fader levels always survive. Saved clip choices survive only while the
 // manifest version is unchanged: a bump means clip order or defaults moved.
-// Stem toggles live in memory only: every clip starts with all its stems on.
+// Stem toggles live in memory only: on entering the app, and whenever another
+// song is chosen from a column's menu, every stem of the clip is off and the
+// participant switches on the voices they want.
+const allStems = i => new Set((clipOf(i).stems || []).map(x => x.id));
 function loadState() {
   state = ASSETS.map(() => ({ level: LEVEL_DEFAULT, clip: 0, off: new Set() }));
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch (e) {}
-  if (!saved) return;
-  if (saved.levels) saved.levels.forEach((v, i) => { if (state[i]) state[i].level = v; });
-  if (saved.version === MANIFEST_VERSION && saved.clips) {
-    saved.clips.forEach((v, i) => { if (state[i] && ASSETS[i].clips[v]) state[i].clip = v; });
-  } else {
-    persist();   // record the new version with default clip choices
+  if (saved) {
+    if (saved.levels) saved.levels.forEach((v, i) => { if (state[i]) state[i].level = v; });
+    if (saved.version === MANIFEST_VERSION && saved.clips) {
+      saved.clips.forEach((v, i) => { if (state[i] && ASSETS[i].clips[v]) state[i].clip = v; });
+    } else {
+      persist();   // record the new version with default clip choices
+    }
   }
+  state.forEach((st, i) => { st.off = allStems(i); });
 }
 function persist() {
   try {
@@ -166,7 +171,7 @@ function stopAll(silent) {
   if (!silent) { playing = false; if (DEBUG) debugStop(); }
 }
 async function swapClip(i) {   // replace one channel in place, aligned to the shared bar grid
-  state[i].off = new Set(); renderStems(i);   // a newly chosen clip starts with all its stems on
+  state[i].off = allStems(i); renderStems(i);   // a newly chosen clip starts silent, like the app itself
   preloadChannel(i);
   if (!playing) return;
   await ready[i];
