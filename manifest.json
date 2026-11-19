@@ -1,5 +1,5 @@
 {
-  "version": 86,
+  "version": 110,
   "tempo": 100,
   "key": "D minor",
   "bars": 8,
@@ -11,27 +11,27 @@
       "color": "#f2c14e",
       "description": "איך העברית נשמעת אצלך — שפת אם, שפה נלמדת, שפה של תפילה.",
       "clips": [
-        { "id": "hebrew-01", "title": "אל אדון", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/hebrew-01.wav", "source": "midi/hebrew-banai-bed.mid", "credit": "עיבוד MIDI", "stems_gain": 0.702,
+        { "id": "hebrew-01", "title": "אל אדון", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/hebrew-01.wav", "source": "midi/hebrew-banai-bed.mid", "credit": "עיבוד MIDI", "stems_gain": 0.719,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/hebrew-banai-bed--bass.wav", "midi": "midi/stems/hebrew-banai-bed--bass.mid" },
             { "id": "guitar", "name": "גיטרה", "file": "clips/stems/hebrew-banai-bed--guitar.wav", "midi": "midi/stems/hebrew-banai-bed--guitar.mid" }
           ]
         },
-        { "id": "hebrew-02", "title": "דורמה דורמה", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/hebrew-02.wav", "source": "midi/hebrew-durme-durme.mid", "credit": "עיבוד MIDI", "stems_gain": 0.659,
+        { "id": "hebrew-02", "title": "דורמה דורמה", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/hebrew-02.wav", "source": "midi/hebrew-durme-durme.mid", "credit": "עיבוד MIDI", "stems_gain": 0.663,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/hebrew-durme-durme--bass.wav", "midi": "midi/stems/hebrew-durme-durme--bass.mid" },
             { "id": "guitar", "name": "גיטרה", "file": "clips/stems/hebrew-durme-durme--guitar.wav", "midi": "midi/stems/hebrew-durme-durme--guitar.mid" },
             { "id": "melody", "name": "מנגינה", "file": "clips/stems/hebrew-durme-durme--melody.wav", "midi": "midi/stems/hebrew-durme-durme--melody.mid" }
           ]
         },
-        { "id": "hebrew-03", "title": "אליעזר בן יהודה", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/hebrew-03.wav", "source": "midi/hebrew-eliezer-ben-yehuda.mid", "credit": "עיבוד MIDI", "stems_gain": 0.659,
+        { "id": "hebrew-03", "title": "אליעזר בן יהודה", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/hebrew-03.wav", "source": "midi/hebrew-eliezer-ben-yehuda.mid", "credit": "עיבוד MIDI", "stems_gain": 0.671,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/hebrew-eliezer-ben-yehuda--bass.wav", "midi": "midi/stems/hebrew-eliezer-ben-yehuda--bass.mid" },
             { "id": "melody", "name": "מנגינה", "file": "clips/stems/hebrew-eliezer-ben-yehuda--melody.wav", "midi": "midi/stems/hebrew-eliezer-ben-yehuda--melody.mid" },
             { "id": "pad", "name": "הרמוניה", "file": "clips/stems/hebrew-eliezer-ben-yehuda--pad.wav", "midi": "midi/stems/hebrew-eliezer-ben-yehuda--pad.mid" }
           ]
         },
-        { "id": "hebrew-04", "title": "אדון עולם", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/hebrew-04.wav", "source": "midi/hebrew-adon-olam.mid", "credit": "עיבוד MIDI", "stems_gain": 0.691,
+        { "id": "hebrew-04", "title": "אדון עולם", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/hebrew-04.wav", "source": "midi/hebrew-adon-olam.mid", "credit": "עיבוד MIDI", "stems_gain": 0.693,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/hebrew-adon-olam--bass.wav", "midi": "midi/stems/hebrew-adon-olam--bass.mid" },
             { "id": "guitar", "name": "גיטרה", "file": "clips/stems/hebrew-adon-olam--guitar.wav", "midi": "midi/stems/hebrew-adon-olam--guitar.mid" },
@@ -46,21 +46,21 @@
       "color": "#4fb3e8",
       "description": "המקום, הנוף, הריח של הארץ.",
       "clips": [
-        { "id": "israel-02", "title": "התקווה", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/israel-02.wav", "source": "midi/israel-hatikva-full.mid", "credit": "עיבוד MIDI", "stems_gain": 0.558,
+        { "id": "israel-02", "title": "התקווה", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/israel-02.wav", "source": "midi/israel-hatikva-full.mid", "credit": "עיבוד MIDI", "stems_gain": 0.605,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/israel-hatikva-full--bass.wav", "midi": "midi/stems/israel-hatikva-full--bass.mid" },
             { "id": "melody", "name": "מנגינה", "file": "clips/stems/israel-hatikva-full--melody.wav", "midi": "midi/stems/israel-hatikva-full--melody.mid" },
             { "id": "pad", "name": "הרמוניה", "file": "clips/stems/israel-hatikva-full--pad.wav", "midi": "midi/stems/israel-hatikva-full--pad.mid" }
           ]
         },
-        { "id": "israel-03", "title": "שלום לך ארץ נהדרת", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/israel-03.wav", "source": "midi/israel-shalom-lach-eretz.mid", "credit": "עיבוד MIDI", "stems_gain": 0.705,
+        { "id": "israel-03", "title": "שלום לך ארץ נהדרת", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/israel-03.wav", "source": "midi/israel-shalom-lach-eretz.mid", "credit": "עיבוד MIDI", "stems_gain": 0.703,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/israel-shalom-lach-eretz--bass.wav", "midi": "midi/stems/israel-shalom-lach-eretz--bass.mid" },
             { "id": "guitar", "name": "גיטרה", "file": "clips/stems/israel-shalom-lach-eretz--guitar.wav", "midi": "midi/stems/israel-shalom-lach-eretz--guitar.mid" },
             { "id": "melody", "name": "מנגינה", "file": "clips/stems/israel-shalom-lach-eretz--melody.wav", "midi": "midi/stems/israel-shalom-lach-eretz--melody.mid" }
           ]
         },
-        { "id": "israel-04", "title": "קריה יפיפיה", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/israel-04.wav", "source": "midi/israel-kirya-yefefiya.mid", "credit": "עיבוד MIDI", "stems_gain": 0.649,
+        { "id": "israel-04", "title": "קריה יפיפיה", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/israel-04.wav", "source": "midi/israel-kirya-yefefiya.mid", "credit": "עיבוד MIDI", "stems_gain": 0.654,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/israel-kirya-yefefiya--bass.wav", "midi": "midi/stems/israel-kirya-yefefiya--bass.mid" },
             { "id": "melody", "name": "מנגינה", "file": "clips/stems/israel-kirya-yefefiya--melody.wav", "midi": "midi/stems/israel-kirya-yefefiya--melody.mid" },
@@ -75,34 +75,34 @@
       "color": "#8fd18a",
       "description": "מה מכוון אותך — צדק, חסד, אחריות, קהילה.",
       "clips": [
-        { "id": "values-01", "title": "למען אחי", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/values-01.wav", "source": "midi/values-carlebach-hemiola.mid", "credit": "עיבוד MIDI", "stems_gain": 0.698,
+        { "id": "values-01", "title": "למען אחי", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/values-01.wav", "source": "midi/values-carlebach-hemiola.mid", "credit": "עיבוד MIDI", "stems_gain": 0.799,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/values-carlebach-hemiola--bass.wav", "midi": "midi/stems/values-carlebach-hemiola--bass.mid" },
             { "id": "pad", "name": "הרמוניה", "file": "clips/stems/values-carlebach-hemiola--pad.wav", "midi": "midi/stems/values-carlebach-hemiola--pad.mid" }
           ]
         },
-        { "id": "values-02", "title": "שיר לשלום", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/values-02.wav", "source": "midi/values-shir-lashalom.mid", "credit": "עיבוד MIDI", "stems_gain": 0.667,
+        { "id": "values-02", "title": "שיר לשלום", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/values-02.wav", "source": "midi/values-shir-lashalom.mid", "credit": "עיבוד MIDI", "stems_gain": 0.675,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/values-shir-lashalom--bass.wav", "midi": "midi/stems/values-shir-lashalom--bass.mid" },
             { "id": "guitar", "name": "גיטרה", "file": "clips/stems/values-shir-lashalom--guitar.wav", "midi": "midi/stems/values-shir-lashalom--guitar.mid" },
             { "id": "melody", "name": "מנגינה", "file": "clips/stems/values-shir-lashalom--melody.wav", "midi": "midi/stems/values-shir-lashalom--melody.mid" }
           ]
         },
-        { "id": "values-03", "title": "צדיק כתמר יפרח", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/values-03.wav", "source": "midi/values-tzadik-katamar.mid", "credit": "עיבוד MIDI", "stems_gain": 0.665,
+        { "id": "values-03", "title": "צדיק כתמר יפרח", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/values-03.wav", "source": "midi/values-tzadik-katamar.mid", "credit": "עיבוד MIDI", "stems_gain": 0.699,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/values-tzadik-katamar--bass.wav", "midi": "midi/stems/values-tzadik-katamar--bass.mid" },
             { "id": "melody", "name": "מנגינה", "file": "clips/stems/values-tzadik-katamar--melody.wav", "midi": "midi/stems/values-tzadik-katamar--melody.mid" },
             { "id": "pad", "name": "הרמוניה", "file": "clips/stems/values-tzadik-katamar--pad.wav", "midi": "midi/stems/values-tzadik-katamar--pad.mid" }
           ]
         },
-        { "id": "values-04", "title": "ככלות הקול והתמונה", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/values-04.wav", "source": "midi/values-kichlot-hakol.mid", "credit": "עיבוד MIDI", "stems_gain": 0.673,
+        { "id": "values-04", "title": "ככלות הקול והתמונה", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/values-04.wav", "source": "midi/values-kichlot-hakol.mid", "credit": "עיבוד MIDI", "stems_gain": 0.694,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/values-kichlot-hakol--bass.wav", "midi": "midi/stems/values-kichlot-hakol--bass.mid" },
             { "id": "melody", "name": "מנגינה", "file": "clips/stems/values-kichlot-hakol--melody.wav", "midi": "midi/stems/values-kichlot-hakol--melody.mid" },
             { "id": "pad", "name": "הרמוניה", "file": "clips/stems/values-kichlot-hakol--pad.wav", "midi": "midi/stems/values-kichlot-hakol--pad.mid" }
           ]
         },
-        { "id": "values-05", "title": "היה לי חבר היה לי אח", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/values-05.wav", "source": "midi/values-haya-li-chaver.mid", "credit": "עיבוד MIDI", "stems_gain": 0.663,
+        { "id": "values-05", "title": "היה לי חבר היה לי אח", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/values-05.wav", "source": "midi/values-haya-li-chaver.mid", "credit": "עיבוד MIDI", "stems_gain": 0.672,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/values-haya-li-chaver--bass.wav", "midi": "midi/stems/values-haya-li-chaver--bass.mid" },
             { "id": "guitar", "name": "גיטרה", "file": "clips/stems/values-haya-li-chaver--guitar.wav", "midi": "midi/stems/values-haya-li-chaver--guitar.mid" },
@@ -117,21 +117,21 @@
       "color": "#e8865f",
       "description": "ספרים, מוזיקה, הומור, שיחה סביב השולחן.",
       "clips": [
-        { "id": "culture-02", "title": "ניגון ריקוד לשבת", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/culture-02.wav", "source": "midi/culture-shabbat-dance.mid", "credit": "עיבוד MIDI", "stems_gain": 0.563,
+        { "id": "culture-02", "title": "ניגון ריקוד לשבת", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/culture-02.wav", "source": "midi/culture-shabbat-dance.mid", "credit": "עיבוד MIDI", "stems_gain": 0.581,
           "stems": [
             { "id": "accordion", "name": "אקורדיון", "file": "clips/stems/culture-shabbat-dance--accordion.wav", "midi": "midi/stems/culture-shabbat-dance--accordion.mid" },
             { "id": "clarinet", "name": "מנגינה (קלרינט)", "file": "clips/stems/culture-shabbat-dance--clarinet.wav", "midi": "midi/stems/culture-shabbat-dance--clarinet.mid" },
             { "id": "tuba", "name": "בס (טובה)", "file": "clips/stems/culture-shabbat-dance--tuba.wav", "midi": "midi/stems/culture-shabbat-dance--tuba.mid" }
           ]
         },
-        { "id": "culture-03", "title": "הללויה", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/culture-03.wav", "source": "midi/culture-hallelujah.mid", "credit": "עיבוד MIDI", "stems_gain": 0.646,
+        { "id": "culture-03", "title": "הללויה", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/culture-03.wav", "source": "midi/culture-hallelujah.mid", "credit": "עיבוד MIDI", "stems_gain": 0.658,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/culture-hallelujah--bass.wav", "midi": "midi/stems/culture-hallelujah--bass.mid" },
             { "id": "guitar", "name": "גיטרה", "file": "clips/stems/culture-hallelujah--guitar.wav", "midi": "midi/stems/culture-hallelujah--guitar.mid" },
             { "id": "melody", "name": "מנגינה", "file": "clips/stems/culture-hallelujah--melody.wav", "midi": "midi/stems/culture-hallelujah--melody.mid" }
           ]
         },
-        { "id": "culture-04", "title": "שבט אחים ואחיות", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/culture-04.wav", "source": "midi/culture-shevet-achim.mid", "credit": "עיבוד MIDI", "stems_gain": 0.693,
+        { "id": "culture-04", "title": "שבט אחים ואחיות", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/culture-04.wav", "source": "midi/culture-shevet-achim.mid", "credit": "עיבוד MIDI", "stems_gain": 0.685,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/culture-shevet-achim--bass.wav", "midi": "midi/stems/culture-shevet-achim--bass.mid" },
             { "id": "guitar", "name": "גיטרה", "file": "clips/stems/culture-shevet-achim--guitar.wav", "midi": "midi/stems/culture-shevet-achim--guitar.mid" },
@@ -146,21 +146,21 @@
       "color": "#c79ae6",
       "description": "מה מהעבר חי בך — סיפורים, ימי זיכרון, השם של סבתא.",
       "clips": [
-        { "id": "memory-02", "title": "שמור וזכור", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/memory-02.wav", "source": "midi/memory-shamor-vezachor-squared.mid", "credit": "עיבוד MIDI", "stems_gain": 0.57,
+        { "id": "memory-02", "title": "שמור וזכור", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/memory-02.wav", "source": "midi/memory-shamor-vezachor-squared.mid", "credit": "עיבוד MIDI", "stems_gain": 0.636,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/memory-shamor-vezachor-squared--bass.wav", "midi": "midi/stems/memory-shamor-vezachor-squared--bass.mid" },
             { "id": "guitar", "name": "גיטרה", "file": "clips/stems/memory-shamor-vezachor-squared--guitar.wav", "midi": "midi/stems/memory-shamor-vezachor-squared--guitar.mid" },
             { "id": "melody", "name": "מנגינה", "file": "clips/stems/memory-shamor-vezachor-squared--melody.wav", "midi": "midi/stems/memory-shamor-vezachor-squared--melody.mid" }
           ]
         },
-        { "id": "memory-03", "title": "Rivers of Babylon", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/memory-03.wav", "source": "midi/memory-rivers-of-babylon.mid", "credit": "עיבוד MIDI", "stems_gain": 0.738,
+        { "id": "memory-03", "title": "Rivers of Babylon", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/memory-03.wav", "source": "midi/memory-rivers-of-babylon.mid", "credit": "עיבוד MIDI", "stems_gain": 0.745,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/memory-rivers-of-babylon--bass.wav", "midi": "midi/stems/memory-rivers-of-babylon--bass.mid" },
             { "id": "guitar", "name": "גיטרה", "file": "clips/stems/memory-rivers-of-babylon--guitar.wav", "midi": "midi/stems/memory-rivers-of-babylon--guitar.mid" },
             { "id": "melody", "name": "מנגינה", "file": "clips/stems/memory-rivers-of-babylon--melody.wav", "midi": "midi/stems/memory-rivers-of-babylon--melody.mid" }
           ]
         },
-        { "id": "memory-04", "title": "חי", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/memory-04.wav", "source": "midi/memory-chai.mid", "credit": "עיבוד MIDI", "stems_gain": 0.68,
+        { "id": "memory-04", "title": "חי", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/memory-04.wav", "source": "midi/memory-chai.mid", "credit": "עיבוד MIDI", "stems_gain": 0.679,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/memory-chai--bass.wav", "midi": "midi/stems/memory-chai--bass.mid" },
             { "id": "guitar", "name": "גיטרה", "file": "clips/stems/memory-chai--guitar.wav", "midi": "midi/stems/memory-chai--guitar.mid" },
@@ -175,21 +175,21 @@
       "color": "#f0f0f0",
       "description": "שבת, חגים, כשרות, מנהגים — במידה שהם שלך.",
       "clips": [
-        { "id": "lifestyle-02", "title": "אשת חיל", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/lifestyle-02.wav", "source": "midi/lifestyle-eshet-chayil-perc.mid", "credit": "עיבוד MIDI", "stems_gain": 0.592,
+        { "id": "lifestyle-02", "title": "אשת חיל", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/lifestyle-02.wav", "source": "midi/lifestyle-eshet-chayil-perc.mid", "credit": "עיבוד MIDI", "stems_gain": 0.667,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/lifestyle-eshet-chayil-perc--bass.wav", "midi": "midi/stems/lifestyle-eshet-chayil-perc--bass.mid" },
             { "id": "darbuka", "name": "דרבוקה", "file": "clips/stems/lifestyle-eshet-chayil-perc--darbuka.wav", "midi": "midi/stems/lifestyle-eshet-chayil-perc--darbuka.mid" },
             { "id": "melody", "name": "מנגינה", "file": "clips/stems/lifestyle-eshet-chayil-perc--melody.wav", "midi": "midi/stems/lifestyle-eshet-chayil-perc--melody.mid" }
           ]
         },
-        { "id": "lifestyle-03", "title": "שבת בבוקר", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/lifestyle-03.wav", "source": "midi/lifestyle-shabbat-baboker.mid", "credit": "עיבוד MIDI", "stems_gain": 0.67,
+        { "id": "lifestyle-03", "title": "שבת בבוקר", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/lifestyle-03.wav", "source": "midi/lifestyle-shabbat-baboker.mid", "credit": "עיבוד MIDI", "stems_gain": 0.675,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/lifestyle-shabbat-baboker--bass.wav", "midi": "midi/stems/lifestyle-shabbat-baboker--bass.mid" },
             { "id": "guitar", "name": "גיטרה", "file": "clips/stems/lifestyle-shabbat-baboker--guitar.wav", "midi": "midi/stems/lifestyle-shabbat-baboker--guitar.mid" },
             { "id": "melody", "name": "מנגינה", "file": "clips/stems/lifestyle-shabbat-baboker--melody.wav", "midi": "midi/stems/lifestyle-shabbat-baboker--melody.mid" }
           ]
         },
-        { "id": "lifestyle-04", "title": "ליצן קטן שלי", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/lifestyle-04.wav", "source": "midi/lifestyle-leitzan-katan.mid", "credit": "עיבוד MIDI", "stems_gain": 0.642,
+        { "id": "lifestyle-04", "title": "ליצן קטן שלי", "note": "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/lifestyle-04.wav", "source": "midi/lifestyle-leitzan-katan.mid", "credit": "עיבוד MIDI", "stems_gain": 0.644,
           "stems": [
             { "id": "bass", "name": "בס", "file": "clips/stems/lifestyle-leitzan-katan--bass.wav", "midi": "midi/stems/lifestyle-leitzan-katan--bass.mid" },
             { "id": "guitar", "name": "גיטרה", "file": "clips/stems/lifestyle-leitzan-katan--guitar.wav", "midi": "midi/stems/lifestyle-leitzan-katan--guitar.mid" },
