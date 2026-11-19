@@ -19,6 +19,7 @@ pip install -r pipeline/requirements.txt
 | `prepare_clip.py`  | Source → exact-loop clip at the manifest tempo/key/loudness + manifest entry |
 | `library.py`       | `list`, `add`, `replace`, `remove` clips. Every change bumps the manifest version |
 | `render_midi.py`   | `.mid` → exact loop at the manifest tempo/bars/beats, −16 LUFS. Used by `--midi`. `--stems` writes one `.mid` + `.wav` per track |
+| `sf2.py`           | SoundFont sample player used by `render_midi.py` for the instrument sounds |
 | `check_library.py` | Verify every clip and stem: length, loudness, clipping, manifest shape. Exit 0 = green |
 
 ## Example
@@ -61,8 +62,18 @@ manifest records the MIDI path, e.g. `midi/israel-hatikva-full.mid`. See the
 
 A melody track that carries pitch-bend or expression (CC11) is rendered as a
 sung line: notes that touch are tied, the pitch follows note + bend (bend range
-from RPN 0, else 2 semitones) and the level follows CC11. A melody track
-without them renders exactly as before.
+from RPN 0, else 2 semitones) and the level follows CC11.
+
+Sound. `render_midi.py` plays sampled instruments when it finds a SoundFont:
+the file named by `$MIXER_SOUNDFONT`, else the first `.sf2` (by name) in
+`sources/soundfonts/` that is really on disk. `sf2.py` is the player (pure
+numpy, nothing to install); each track uses the instrument of its General MIDI
+program (a track named melody always gets a held instrument, the flute), the
+tracks are balanced with the melody in front, and a short room reverb is added.
+`sources/` is not in Git, so a fresh clone has no SoundFont and falls back to
+the built-in synth; the render log says which one played. After changing the
+SoundFont or the renderer, `sources/transcribe/rerender.py` renders every MIDI
+clip and stem again.
 
 `replace` keeps the clip id and its position in the picker, so the participant's
 choice stays valid. `remove` refuses to delete an asset's last clip. Every command

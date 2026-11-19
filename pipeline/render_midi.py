@@ -11,9 +11,14 @@ Tempo, bars and beats per bar default to manifest.json in the repo root
 be written in the library key already; --transpose shifts every pitched note
 by whole semitones if it is not.
 
-Track names (or GM programs) pick a voice: melody/lead/clarinet -> lead,
-bass/tuba -> pluck, guitar/accordion -> strum, pad -> pad, a drum track ->
-dum/tak. Note starts are re-timed from the MIDI tempo to the library tempo.
+Sound: when a SoundFont is available (sf2.find(): $MIXER_SOUNDFONT, else an
+.sf2 in sources/soundfonts/) every track is played with the sampled instrument
+of its General MIDI program by pipeline/sf2.py, the tracks are balanced
+(melody in front), and a short room reverb is added. Without a SoundFont the
+built-in synth below is used: track names (or GM programs) pick a voice:
+melody/lead/clarinet -> lead, bass/tuba -> pluck, guitar/accordion -> strum,
+pad -> pad, a drum track -> dum/tak.
+Note starts are re-timed from the MIDI tempo to the library tempo.
 A lead track that carries pitch-bend or expression (CC11) is played as a sung
 line: notes that touch are tied, the pitch follows note + bend (bend range from
 RPN 0, else 2 semitones) and the level follows CC11.
@@ -32,6 +37,10 @@ import numpy as np
 import pretty_midi
 import pyloudnorm as pyln
 import soundfile as sf
+from scipy.signal import butter, fftconvolve, sosfilt
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import sf2  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SR = 44100
@@ -115,6 +124,27 @@ def smooth(x, n):
     return np.convolve(np.concatenate([np.full(n, x[0]), x, np.full(n, x[-1])]), k, mode="same")[n:-n]
 
 
+def sung_curves(inst, scale, loop, transpose):
+    """[(start, pitch curve, level curve, velocity)] per chain of tied notes of a track with pitch-bend / expression."""
+    notes = sorted(inst.notes, key=lambda n: n.start)
+    rng = bend_range(inst)
+    bends = sorted((b.time * scale, b.pitch / 8192.0 * rng) for b in inst.pitch_bends)
+    expr = sorted((c.time * scale, c.value / 127.0) for c in inst.control_changes if c.number == 11)
+    chains = []
+    for n in notes:
+        if n.start * scale >= loop:
+            continue
+        if chains and n.start * scale <= chains[-1][-1].end * scale + TIE: chains[-1].append(n)
+        else: chains.append([n])
+    out = []
+    for ch in chains:
+        t0, t1 = ch[0].start * scale, max(n.end for n in ch) * scale
+        m = max(8, int((t1 - t0) * SR)); t = t0 + np.arange(m) / SR; k = int(GLIDE * SR)
+        pitch = smooth(held([(n.start * scale, n.pitch) for n in ch], t, ch[0].pitch) + held(bends, t, 0.0) + transpose, k)
+        out.append((t0, pitch, smooth(held(expr, t, 1.0), k), ch[0].velocity))
+    return out
+
+
 def sung_line(inst, scale, loop, transpose, base):
     """[(start, signal)] for a lead track with pitch-bend / expression: one signal per chain of tied notes."""
     notes = sorted(inst.notes, key=lambda n: n.start)
@@ -153,6 +183,81 @@ def pick_voice(inst):
     return "pad"
 
 
+# ---------- sampled instruments ----------
+# role -> (level against the melody in dB, share of room reverb)
+ROLES = {"lead": (0.0, 0.12), "bass": (-2.0, 0.04), "chords": (-6.0, 0.15), "drums": (-5.0, 0.10)}
+SUNG_RELEASE = 0.12      # s: a sung line's notes end with the singer's
+SUNG_LEAD_IN = 0.02      # s: sampled wind instruments speak late; a sung line starts this much early to land on time
+HAND_DRUMS = {35: 64, 36: 64, 42: 60, 38: 62}     # a darbuka written on kick / hat keys -> low conga (dum), high bongo (tak)
+_FONT = {}
+
+
+def soundfont():
+    """The SoundFont player, or None when no .sf2 is available (then the built-in synth plays)."""
+    path = sf2.find(ROOT)
+    if path not in _FONT:
+        _FONT[path] = sf2.SoundFont(path) if path else None
+    return _FONT[path]
+
+
+def role_of(inst):
+    name = inst.name.lower(); p = inst.program
+    if inst.is_drum: return "drums"
+    if any(k in name for k in ("melody", "lead", "clarinet", "voice")): return "lead"
+    if any(k in name for k in ("bass", "tuba")) or 32 <= p <= 39 or p == 58: return "bass"
+    if 64 <= p <= 79 or 40 <= p <= 42: return "lead"
+    return "chords"
+
+
+def program_of(inst):
+    name = inst.name.lower(); p = int(inst.program)
+    if "oud" in name: return 24                                          # no oud in General MIDI: nylon guitar
+    if any(k in name for k in ("melody", "lead", "voice")) and (p <= 31 or 104 <= p <= 119): return 73   # a melody is held, not plucked: flute
+    return p
+
+
+def room():
+    """A small synthetic room: 15 ms pre-delay, a few early reflections, a 1.1 s tail that darkens as it fades."""
+    n = int(1.3 * SR); t = np.arange(n) / SR; rng = np.random.default_rng(7)
+    tail = 0.6 * rng.standard_normal(n) * np.exp(-t / 0.15) + sosfilt(butter(2, 1800, btype="low", fs=SR, output="sos"), rng.standard_normal(n)) * np.exp(-t / 0.26) * 3.0
+    tail *= np.minimum(1.0, t / 0.03)
+    ir = np.zeros(n + int(0.015 * SR)); ir[int(0.015 * SR):] = tail * 0.05
+    for ms, g in ((11, 0.5), (17, -0.4), (23, 0.35), (31, -0.3), (41, 0.25), (53, 0.2)):
+        ir[int(ms * SR / 1000)] += g
+    ir = sosfilt(butter(2, 160, btype="high", fs=SR, output="sos"), ir)
+    return ir / np.sqrt(np.sum(ir ** 2))
+
+
+def sampled(pm, font, scale, loop, transpose, length, rng, reverb=True):
+    """Mix of all tracks played from the SoundFont: one bus per track, balanced by role, with room reverb."""
+    ir = room(); meter = pyln.Meter(SR); mix = np.zeros(length)
+    for inst in pm.instruments:
+        bus = np.zeros(length); role = role_of(inst); prog = program_of(inst)
+        def add(start, sig):
+            a = int(start * SR); b = min(length, a + len(sig))
+            if b > a: bus[a:b] += sig[:b - a]
+        if inst.is_drum:
+            for n in inst.notes:
+                if n.start * scale < loop:
+                    key = HAND_DRUMS.get(n.pitch, n.pitch) if "darbuka" in inst.name.lower() else n.pitch
+                    add(n.start * scale, font.voice(128, 0, key, n.velocity, int(0.25 * SR)))
+        elif inst.pitch_bends or any(c.number == 11 for c in inst.control_changes):
+            for t0, pitch, level, vel in sung_curves(inst, scale, loop, transpose):
+                k = int(min(SUNG_LEAD_IN, t0) * SR)
+                pitch = np.concatenate([np.full(k, pitch[0]), pitch]); level = np.concatenate([np.full(k, level[0]), level])
+                add(t0 - k / SR, font.voice(0, prog, int(round(float(np.median(pitch)))), vel, len(pitch), pitch=pitch, level=level, release=SUNG_RELEASE))
+        else:
+            for n in inst.notes:
+                if n.start * scale < loop:
+                    add(n.start * scale, font.voice(0, prog, n.pitch + transpose, n.velocity, int(max(0.05, (n.end - n.start) * scale) * SR)))
+        gain_db, wet = ROLES[role]
+        if reverb: bus = bus + wet * fftconvolve(bus, ir)[:length]
+        loud = meter.integrated_loudness(bus) if np.any(bus) else float("-inf")
+        if np.isfinite(loud):
+            mix += bus * 10 ** ((-20.0 + gain_db - loud) / 20)
+    return sosfilt(butter(2, 30, btype="high", fs=SR, output="sos"), mix)
+
+
 def manifest_defaults(root=ROOT):
     """(tempo, bars, beats_per_bar) from <root>/manifest.json."""
     with open(os.path.join(root, "manifest.json"), encoding="utf-8") as f:
@@ -160,11 +265,11 @@ def manifest_defaults(root=ROOT):
     return float(m["tempo"]), int(m["bars"]), int(m["beats_per_bar"])
 
 
-def render(midi, out, bpm, bars, beats_per_bar, *, transpose=0, lufs=-16.0, subtype="PCM_16", log=print):
+def render(midi, out, bpm, bars, beats_per_bar, *, transpose=0, lufs=-16.0, subtype="PCM_16", log=print, reverb=True):
     """Render `midi` to `out` (mono WAV at SR) as an exact loop of bars * beats_per_bar
     beats at `bpm`. Deterministic: the same input always gives the same samples.
     Returns (y, info) where y is the float64 signal and info has 'samples',
-    'lufs', 'peak', 'midi_bpm'."""
+    'lufs', 'peak', 'midi_bpm'. reverb=False leaves the room out (for measuring the notes themselves)."""
     rng = np.random.default_rng(1)              # fresh per render: same noise every time
     pm = pretty_midi.PrettyMIDI(midi)
     tempi = pm.get_tempo_changes()[1]
@@ -172,13 +277,16 @@ def render(midi, out, bpm, bars, beats_per_bar, *, transpose=0, lufs=-16.0, subt
     scale = src_bpm / bpm                       # re-time note starts to the library tempo
     loop = bars * beats_per_bar * 60.0 / bpm
     N = int(round(loop * SR))
-    buf = np.zeros(N + 2 * SR)
+    buf = np.zeros(N + 6 * SR)
+    font = soundfont()
 
     def add(start, sig):
         s = int(start * SR); e = min(len(buf), s + len(sig))
         buf[s:e] += sig[:e - s]
 
-    for inst in pm.instruments:
+    if font is not None:
+        buf += sampled(pm, font, scale, loop, transpose, len(buf), rng, reverb)
+    for inst in (pm.instruments if font is None else []):
         if inst.is_drum:
             for n in inst.notes:
                 if n.start * scale < loop:
@@ -197,7 +305,8 @@ def render(midi, out, bpm, bars, beats_per_bar, *, transpose=0, lufs=-16.0, subt
             add(st, fn(freq(n.pitch + transpose), dur, base * n.velocity / 100))
 
     y = buf[:N].copy()
-    y[:2 * SR] += buf[N:N + 2 * SR]             # wrap the tail -> clean seam
+    for k in range(N, len(buf), N):             # wrap the tail (notes ringing on, reverb) -> clean seam
+        part = buf[k:k + N]; y[:len(part)] += part
     meter = pyln.Meter(SR)
     y = pyln.normalize.loudness(y, meter.integrated_loudness(y), lufs)
     for _ in range(3):                          # soft-clip, re-measure, converge
@@ -209,7 +318,8 @@ def render(midi, out, bpm, bars, beats_per_bar, *, transpose=0, lufs=-16.0, subt
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     sf.write(out, y, SR, subtype=subtype)
     info = {"samples": len(y), "lufs": float(meter.integrated_loudness(y)), "peak": pk, "midi_bpm": src_bpm}
-    log(f"render        {midi}  ({src_bpm:g} BPM in the file -> {bpm:g} BPM)")
+    log(f"render        {midi}  ({src_bpm:g} BPM in the file -> {bpm:g} BPM)  sound: "
+        + (os.path.basename(font.path) if font is not None else "built-in synth (no SoundFont found)"))
     log(f"              {out}: {len(y)} samples = {len(y)/SR:.3f} s ({bars} bars x {beats_per_bar} beats), "
         f"{info['lufs']:.1f} LUFS, peak {pk:.2f}")
     return y, info
