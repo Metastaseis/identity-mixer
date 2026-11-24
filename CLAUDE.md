@@ -70,7 +70,8 @@ The order is semantic, not alphabetical. Arrays of channels, faders, radar axes 
 │   ├── library.py            add, replace, remove, list clips (bumps manifest version)
 │   ├── check_library.py
 │   └── arrange/              hand-written arrangements (manual.py) → midi/, and the tools to write them; caches git-ignored
-│       └── parts.py          writes midi/parts/: each column's instrument part, re-voiced onto HARMONY
+│       ├── parts.py          writes midi/parts/: each column's instrument part, re-voiced onto HARMONY
+│       └── fit.py            checks that every combination of parts fits together (semitone clashes)
 ├── sources/                  git-ignored: recordings, SoundFonts, transcription work
 ├── README.md
 ├── qr.png                    QR code for the public URL
@@ -111,6 +112,7 @@ If a file or folder you need isn't here, it probably shouldn't exist. Ask.
 - Stems: same length, tempo, key and start as their clip. Stems are not each −16 LUFS. Their levels are a balance: the stems of the first six clips sit at −16 each (the אשת חיל darbuka at −21, so its hits don't clip); in the fifteen later songs the melody sits at −14 and the accompaniment at −20. What is enforced is the sum: a clip's stems played together at the clip's `stems_gain` reach −16 ± 1 LUFS without touching full scale. The player plays the stems at that gain instead of the full-mix file.
 - Clips and stems are mono 44.1 kHz 16-bit WAV, as the pipeline writes them (846 720 samples per 8-bar loop). WAV only: `check_library.py` rejects anything else, because MP3 can't hold an exact loop length.
 - Keep the total size of `clips/` in mind before adding anything: phones on a classroom Wi-Fi download each channel's selected clip before it can sound. Report the size delta in the session summary whenever `clips/` changes.
+- After adding or changing a part, run pipeline/arrange/fit.py; it must exit 0.
 - Always run from the venv: `source ~/Projects/Assets/.venv/bin/activate`. Never `pip install` outside it and never without asking.
 
 ## Audio scheduling (`app.js`)

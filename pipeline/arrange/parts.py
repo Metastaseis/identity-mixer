@@ -37,7 +37,7 @@ from render_midi import manifest_defaults  # noqa: E402
 OUT_DIR = "midi/parts"
 
 # The shared progression, D minor, one chord per half bar (beats 1-2, beats 3-4), 8 bars.
-HARMONY = "iv iv  i V  i i  i i  iv iv  i i  i V  i i".split()
+HARMONY = "i i  i i  i i  i V  iv iv  i i  i V  i i".split()
 CHORDS = {"i": (2, frozenset({2, 5, 9})),       # Dm: D F A
           "iv": (7, frozenset({7, 10, 2})),     # Gm: G Bb D
           "V": (9, frozenset({9, 1, 4}))}       # A:  A C# E
@@ -60,8 +60,8 @@ RANGES = {"clarinet": ("D3", "A6"), "violin": ("G3", "A6"), "bass": ("E1", "G3")
 
 # Whole-bar rotation per clip, pinned (computed once by best_rotation). Parts without C# use 0.
 ROTATION = {
-    "values-03": 6,     # צדיק כתמר יפרח, bass: 2 C# onsets in V
-    "culture-02": 2,    # ניגון ריקוד לשבת, accordion: 4 C# onsets in V
+    "values-03": 3,     # צדיק כתמר יפרח, bass: 2 C# onsets in V
+    "culture-02": 1,    # ניגון ריקוד לשבת, accordion: 4 C# onsets in V
 }
 
 # Clips with no source part for their column yet; they get one in B3.
