@@ -227,6 +227,27 @@ SONGS = {
         drums=dict(kit=0, bars=[[(0, 36, 110), (0, 41, 80), (0, 42, 100), (4, 42, 80), (8, 36, 100), (8, 41, 75), (8, 42, 95), (12, 42, 65)],
                                 [(0, 36, 110), (0, 41, 80), (0, 42, 100), (4, 36, 95), (4, 41, 70), (4, 42, 85), (8, 36, 100), (8, 41, 75), (8, 42, 95), (12, 42, 65)]] * 4),
     ),
+    # The opening line, as Ehud Banai sings it the third time (308.6 s; the same line opens both verse blocks, at 70.1 s
+    # and 155.5 s, and this return fits the shared progression best). 4/4, one step = one sixteenth; the beat is tracked
+    # in eighths (pick.NBEATS 64), so the loop holds eight bars of the song, 81 -> 100 BPM. Original key D minor.
+    # Read off trace.py / notes.py / syll.py: a recitation on F with a turn down to D, the leading tone C# under A in bars
+    # 4-5, and a climb to A in bars 6-8. His scoops into notes (B-G# before bar 2's G) are left out. Written an octave
+    # above his voice. Chords from notes.py's reading of the band, one per half bar.
+    "hebrew-banai-bed": dict(
+        units=128, style="offbeat",
+        melody=[
+            (0, 2, "E4"), (2, 1.5, "F4"), (3.5, 1.5, "D4"), (5, 7.5, "F4"),                                                # bar 1
+            (18.5, 1, "G4"), (19.5, 2.5, "F4"), (22, 1, "G4"), (23, 1, "F4"), (24, 2.5, "F4"), (26.5, 2, "D4"),           # bar 2
+            (29.5, 1, "E4"), (30.5, 7, "F4"),
+            (42.5, 1.5, "G4"), (44, 2, "F4"), (46, 0.5, "D4"), (46.5, 1.5, "G4"), (48, 4, "F4"),                           # bar 3
+            (53, 3.5, "D4"), (58.5, 1, "C4"), (59.5, 1, "C#4"), (60.5, 2.5, "E4"),                                         # bar 4
+            (65.5, 1, "D4"), (66.5, 1.5, "E4"), (68.5, 2.5, "C#4"), (71, 8.5, "D4"),                                       # bar 5
+            (84, 2, "D4"), (86.5, 1, "A4"), (87.5, 1.5, "G4"), (89, 4.5, "F4"), (93.5, 3.5, "G4"),                         # bar 6
+            (97, 6.5, "A4"), (107.5, 1, "C4"), (108.5, 1.5, "D4"), (110, 1.5, "A4"), (111.5, 1.5, "G4"),                   # bar 7
+            (113, 4.5, "F4"), (117.5, 1, "G4"), (118.5, 8.5, "A4"),                                                        # bar 8
+        ],
+        chords=["Dm", "A", "Gm", "Dm", "A", "Gm", "Dm", "A", "A", "Dm", "Dm", "F", "Dm", "Dm", "F", "Dm"],
+    ),
     # Verse 1, lines 1-2 (four half-lines of two bars), in 4/4: one step = one sixteenth. Original key C sharp minor, here D minor.
     #   syllables per phrase: (rest) 6 | 2 | 4 | 1 | 6 | 2 | 4 | 1
     # Shiri Maimon sings it freely over held chords with no beat, so the notes are hers and the rhythm is her phrasing set on

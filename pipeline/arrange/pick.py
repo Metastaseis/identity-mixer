@@ -1,8 +1,9 @@
 """Choose the loop section per song. N tracked beats -> 8 library bars."""
 import sys, os, json, numpy as np, scipy.ndimage as ndi
 from sect import analyse, SONGS, W
-NBEATS = {"hebrew-durme-durme": 48, "culture-hallelujah": 48}      # 6-beat metres: 3 tracked beats per 2 library beats
-GROUP = {"hebrew-durme-durme": 6, "culture-hallelujah": 6}
+NBEATS = {"hebrew-durme-durme": 48, "culture-hallelujah": 48,      # 6-beat metres: 3 tracked beats per 2 library beats
+          "hebrew-banai-bed": 64}                                  # beats tracked as eighths: 8 per bar, 8 bars of the song
+GROUP = {"hebrew-durme-durme": 6, "culture-hallelujah": 6, "hebrew-banai-bed": 8}
 
 def choose(slug, verbose=True):
     d = analyse(slug); beats = d["beats"]; cb = d["cb"]; mb = d["mb"]

@@ -75,7 +75,7 @@ ROTATION = {
 }
 
 # Clips with no source part for their column yet; they get one in B3.
-SKIP = {"hebrew-01": "no melody yet: needs the recording in sources/עברית/ or a hand-written line"}
+SKIP = {}
 
 MAX_MOVE = 4        # semitones a non-root note may move
 GRACE = 0.03        # s: a note a hair early belongs to the next half bar

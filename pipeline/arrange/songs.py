@@ -9,6 +9,7 @@ SONGS = {
  "hebrew-durme-durme":        ("hebrew", "sources/עברית/יהורם גאון- durme durme (ביצוע מוקדם וראשוני) - שנת 1965.mp3", "דורמה דורמה"),
  "hebrew-eliezer-ben-yehuda": ("hebrew", "sources/עברית/מתי כספי - אליעזר בן יהודה.mp3", "אליעזר בן יהודה"),
  "hebrew-adon-olam":          ("hebrew", "sources/עברית/עוזי חיטמן אדון עולם.mp3", "אדון עולם"),
+ "hebrew-banai-bed":          ("hebrew", "sources/עברית/אהוד בנאי - אל אדון.mp3", "אל אדון"),     # clip hebrew-01; the slug of its first, hand-made bed
  "values-shir-lashalom":      ("values", "sources/עולם ערכים/Shiri Maimon - Shir LaShalom (Song for Peace) שירי מימון - שיר לשלום.mp3", "שיר לשלום"),
  "values-tzadik-katamar":     ("values", "sources/עולם ערכים/אברהם פררה - צדיק כתמר יפרח.mp3", "צדיק כתמר יפרח"),
  "values-kichlot-hakol":      ("values", "sources/עולם ערכים/דני בסן - ככלות הקול והתמונה - קליפ.mp3", "ככלות הקול והתמונה"),
