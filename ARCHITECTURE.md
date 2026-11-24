@@ -32,6 +32,7 @@ pipeline/
   check_library.py    Verify every manifest clip and stem exists, loops exactly, matches tempo and loudness
   requirements.txt    Python dependencies
   README.md           The pipeline tools and how to run them
+  arrange/            Hand-written arrangements (manual.py) -> midi/, and the tools to write them; caches git-ignored
 facilitator/          Planned (Phase 4), not yet present
   index.html          Room view: overlay of participant profiles
 README.md             How to run, how to add a clip, how to deploy

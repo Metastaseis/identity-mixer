@@ -21,6 +21,7 @@ pip install -r pipeline/requirements.txt
 | `render_midi.py`   | `.mid` → exact loop at the manifest tempo/bars/beats, −16 LUFS. Used by `--midi`. `--stems` writes one `.mid` + `.wav` per track |
 | `sf2.py`           | SoundFont sample player used by `render_midi.py` for the instrument sounds |
 | `check_library.py` | Verify every clip and stem: length, loudness, clipping, manifest shape. Exit 0 = green |
+| `arrange/`         | The 15 hand-written arrangements: `manual.py` → `midi/` via `convert.py --apply`, plus the study tools for writing them; see `convert.py`'s docstring. Needs the recordings in `sources/` or the caches in `arrange/sect/` and `arrange/sep/` |
 
 ## Example
 
@@ -66,14 +67,27 @@ from RPN 0, else 2 semitones) and the level follows CC11.
 
 Sound. `render_midi.py` plays sampled instruments when it finds a SoundFont:
 the file named by `$MIXER_SOUNDFONT`, else the first `.sf2` (by name) in
-`sources/soundfonts/` that is really on disk. `sf2.py` is the player (pure
-numpy, nothing to install); each track uses the instrument of its General MIDI
+`sources/soundfonts/` that is really on disk. `sf2.py` is the player (numpy
+and scipy, nothing else to install); each track uses the instrument of its General MIDI
 program (a track named melody always gets a held instrument, the flute), the
 tracks are balanced with the melody in front, and a short room reverb is added.
 `sources/` is not in Git, so a fresh clone has no SoundFont and falls back to
 the built-in synth; the render log says which one played. After changing the
-SoundFont or the renderer, `sources/transcribe/rerender.py` renders every MIDI
-clip and stem again.
+SoundFont or the renderer, `pipeline/arrange/rerender.py` renders every MIDI
+clip and stem again. Until `rerender.py` renders them from the committed MIDI,
+a fresh clone can re-render every clip except the 15 songs of `arrange/songs.py`,
+which need the local caches.
+
+SoundFont. Library renders use **Merlin.sf2** (11,583,258 bytes, sha256
+`a3ebced39a1264849616f160bd135d77efd19ddb2be129aa9b9d964ba391f979`), bundled with
+the SCAMP Python package 0.9.0 (https://pypi.org/project/scamp/0.9.0/, source
+https://sr.ht/~marcevanstein/scamp/). Pin it with `MIXER_SOUNDFONT`; any other
+`.sf2` that sorts before it in `sources/soundfonts/` would replace it.
+
+Demucs. `arrange/sep.py` separates a recording into vocals, bass, other and drums
+in its own venv (`torch` 2.15.0, `demucs` 4.1.0), by default
+`~/.venvs/demucs/bin/python`, or the interpreter named by `$DEMUCS_PYTHON`.
+It is needed only for a new song or when the caches are missing.
 
 `replace` keeps the clip id and its position in the picker, so the participant's
 choice stays valid. `remove` refuses to delete an asset's last clip. Every command

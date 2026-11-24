@@ -5,3 +5,4 @@ pyrubberband
 pyloudnorm
 numpy
 pretty_midi
+scipy

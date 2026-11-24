@@ -29,7 +29,7 @@ past the loop is wrapped to the start so the seam is clean. Output is mono
 Importable: render(midi, out, bpm, bars, beats_per_bar) does the work and
 returns the float signal; prepare_clip.prepare(midi=...) uses it for
 library.py add/replace --midi.
-Requires: pretty_midi numpy soundfile pyloudnorm  (pipeline/requirements.txt)
+Requires: pretty_midi numpy soundfile pyloudnorm scipy  (pipeline/requirements.txt)
 """
 import argparse, json, os, sys
 

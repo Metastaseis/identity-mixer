@@ -1,6 +1,12 @@
 # Original recordings (large, never committed)
 sources/
 
+# Arrangement tools: analysis caches and dry runs (derived from the recordings)
+pipeline/arrange/sect/
+pipeline/arrange/sep/
+pipeline/arrange/out/
+pipeline/arrange/wav/
+
 # Python
 __pycache__/
 *.pyc

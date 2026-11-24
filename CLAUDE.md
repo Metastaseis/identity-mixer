@@ -66,7 +66,8 @@ The order is semantic, not alphabetical. Arrays of channels, faders, radar axes 
 │   ├── render_midi.py        MIDI → WAV at the library grid
 │   ├── sf2.py                SoundFont 2 sample player used by render_midi.py
 │   ├── library.py            add, replace, remove, list clips (bumps manifest version)
-│   └── check_library.py
+│   ├── check_library.py
+│   └── arrange/              hand-written arrangements (manual.py) → midi/, and the tools to write them; caches git-ignored
 ├── sources/                  git-ignored: recordings, SoundFonts, transcription work
 ├── README.md
 ├── qr.png                    QR code for the public URL
@@ -86,6 +87,7 @@ If a file or folder you need isn't here, it probably shouldn't exist. Ask.
 | Radar drawing | `profile.js`, `styles.css` | `app.js` beyond the call site |
 | Layout, copy, colours | `index.html`, `styles.css` | `app.js` |
 | Adding or replacing a clip or stem | `midi/`, run `pipeline/`, then `manifest.json` | `app.js` |
+| Writing or changing a hand-written arrangement | `pipeline/arrange/manual.py`, then `convert.py --apply` | `app.js` |
 | Tempo or key of the library | **Don't.** This re-renders everything. Ask first. | |
 
 ## manifest.json
