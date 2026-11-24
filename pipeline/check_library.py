@@ -14,6 +14,9 @@ Checks:
     clip's loop length, the .mid exists, and the stems summed at the clip's
     stems_gain sit within -16 ± 1 LUFS without touching full scale (the player
     plays the stems at that gain instead of the full file)
+  * stray MIDI: every .mid directly in midi/ or midi/stems/ is some clip's source or
+    some stem's midi (midi/alternates/ holds alternate feels outside the library and
+    is not checked)
 
 usage: check_library.py [--root DIR]
 """
@@ -175,6 +178,23 @@ def check_stems(m, c, root, errors):
     return rows
 
 
+def check_stray_midi(m, root, errors):
+    """Every .mid directly in midi/ and midi/stems/ must be referenced by the manifest."""
+    used = set()
+    for a in m["assets"]:
+        for c in a.get("clips", []):
+            used.add(c.get("source", ""))
+            used.update(s.get("midi", "") for s in c.get("stems") or [])
+    for folder in ("midi", "midi/stems"):
+        full = os.path.join(root, folder)
+        if not os.path.isdir(full):
+            continue
+        for name in sorted(os.listdir(full)):
+            path = f"{folder}/{name}"
+            if name.lower().endswith(".mid") and os.path.isfile(os.path.join(full, name)) and path not in used:
+                errors.append(f"stray MIDI: {path} is not a clip's source or a stem's midi in the manifest (move it to midi/alternates/ or register it)")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--root", default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -203,6 +223,7 @@ def main():
                 stem_rows += not s["path"].startswith("  =")
                 print(f"  {s['path']:{W-2}s} {s['sr']:6d} {s['ch']:2d} {s['n']:8d} {s['delta']:+4d} "
                       f"{s['lufs']:7.2f} {s['peak_db']:7.2f}  {'ok' if s['ok'] else 'FAIL'}")
+    check_stray_midi(m, root, errors)
     if errors:
         print()
         print("\n".join(errors))

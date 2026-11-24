@@ -20,7 +20,7 @@ pip install -r pipeline/requirements.txt
 | `library.py`       | `list`, `add`, `replace`, `remove` clips. Every change bumps the manifest version |
 | `render_midi.py`   | `.mid` → exact loop at the manifest tempo/bars/beats, −16 LUFS. Used by `--midi`. `--stems` writes one `.mid` + `.wav` per track |
 | `sf2.py`           | SoundFont sample player used by `render_midi.py` for the instrument sounds |
-| `check_library.py` | Verify every clip and stem: length, loudness, clipping, manifest shape. Exit 0 = green |
+| `check_library.py` | Verify every clip and stem: length, loudness, clipping, manifest shape, no unreferenced MIDI in `midi/` or `midi/stems/` (`midi/alternates/` is exempt). Exit 0 = green |
 | `arrange/`         | The 15 hand-written arrangements: `manual.py` → `midi/` via `convert.py --apply`, plus the study tools for writing them; see `convert.py`'s docstring. Needs the recordings in `sources/` or the caches in `arrange/sect/` and `arrange/sep/` |
 
 ## Example

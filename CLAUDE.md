@@ -57,7 +57,8 @@ The order is semantic, not alphabetical. Arrays of channels, faders, radar axes 
 ├── clips/                    rendered WAV clips (build products)
 │   └── stems/                rendered WAV stems (build products)
 ├── midi/                     MIDI sources, one per clip (source of truth)
-│   └── stems/                MIDI sources, one per stem
+│   ├── stems/                MIDI sources, one per stem
+│   └── alternates/           alternate feels, not in the library
 ├── pipeline/                 Python: render, normalise, check
 │   ├── README.md
 │   ├── requirements.txt
