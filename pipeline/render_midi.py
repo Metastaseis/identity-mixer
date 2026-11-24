@@ -18,7 +18,8 @@ are balanced (melody in front), and a short room reverb is added. A missing or
 different SoundFont stops the render. Only with MIXER_SOUNDFONT=builtin is the
 built-in synth below used: track names (or GM programs) pick a voice:
 melody/lead/clarinet -> lead, bass/tuba -> pluck, guitar/accordion -> strum,
-pad -> pad, a drum track -> dum/tak.
+pad -> pad, a drum track -> dum/tak. A drum track plays the SoundFont's drum kit (bank 128) named by its
+program: 0 Standard, 16 Power, 25 TR 808, 32 Jazz, 48 Orchestra in Merlin.sf2.
 Note starts are re-timed from the MIDI tempo to the library tempo.
 A lead track that carries pitch-bend or expression (CC11) is played as a sung
 line: notes that touch are tied, the pitch follows note + bend (bend range from
@@ -245,7 +246,7 @@ def sampled(pm, font, scale, loop, transpose, length, rng, reverb=True):
             for n in inst.notes:
                 if n.start * scale < loop:
                     key = HAND_DRUMS.get(n.pitch, n.pitch) if "darbuka" in inst.name.lower() else n.pitch
-                    add(n.start * scale, font.voice(128, 0, key, n.velocity, int(0.25 * SR)))
+                    add(n.start * scale, font.voice(128, int(inst.program), key, n.velocity, max(int(0.25 * SR), int((n.end - n.start) * scale * SR))))
         elif inst.pitch_bends or any(c.number == 11 for c in inst.control_changes):
             for t0, pitch, level, vel in sung_curves(inst, scale, loop, transpose):
                 k = int(min(SUNG_LEAD_IN, t0) * SR)

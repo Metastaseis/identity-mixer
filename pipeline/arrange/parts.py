@@ -10,7 +10,8 @@ its GM program, at the library tempo, 8 bars.
 Roles, by track name in the song MIDI:
   melody  = melody | clarinet           notes unchanged
   bass    = bass | tuba                  re-voiced
-  harmony = guitar | pad | oud | accordion   re-voiced
+  harmony = guitar | pad | oud | accordion | piano   re-voiced
+  drums   = drums                        on the drum channel, in the clip's kit (KITS); no re-voicing, no range
 A missing or ambiguous role is an error; nothing is guessed.
 
 Re-voicing (bass and harmony): every note keeps its start, end and velocity.
@@ -46,7 +47,7 @@ CSHARP = 1
 # asset id -> (instrument id, GM program, bank, source role); asset order
 INSTRUMENTS = {
     "hebrew":    ("clarinet", 71, 0, "melody"),
-    "israel":    ("drums", 0, 128, None),          # no source part yet (B3)
+    "israel":    ("drums", None, 128, "drums"),    # program: the clip's kit, from KITS
     "values":    ("bass", 33, 0, "bass"),
     "culture":   ("guitar", 25, 0, "harmony"),
     "memory":    ("violin", 40, 0, "melody"),
@@ -54,7 +55,15 @@ INSTRUMENTS = {
 }
 ROLE_TRACKS = {"melody": ("melody", "clarinet"),
                "bass": ("bass", "tuba"),
-               "harmony": ("guitar", "pad", "oud", "accordion")}
+               "harmony": ("guitar", "pad", "oud", "accordion", "piano"),
+               "drums": ("drums",)}
+# Drum kit per clip: a bank 128 program of Merlin.sf2 (0 Standard, 16 Power, 25 TR 808, 32 Jazz, 48 Orchestra).
+# The song's drums track carries the same kit; a mismatch is an error.
+KITS = {
+    "israel-02": 48,    # התקווה: Orchestra (timpani, orchestral snare, cymbal)
+    "israel-03": 32,    # שלום לך ארץ נהדרת: Jazz
+    "israel-04": 0,     # קריה יפיפיה: Standard
+}
 RANGES = {"clarinet": ("D3", "A6"), "violin": ("G3", "A6"), "bass": ("E1", "G3"),
           "guitar": ("E2", "B5"), "piano": ("A0", "C8")}
 
@@ -62,11 +71,11 @@ RANGES = {"clarinet": ("D3", "A6"), "violin": ("G3", "A6"), "bass": ("E1", "G3")
 ROTATION = {
     "values-03": 3,     # צדיק כתמר יפרח, bass: 2 C# onsets in V
     "culture-02": 1,    # ניגון ריקוד לשבת, accordion: 4 C# onsets in V
+    "lifestyle-02": 3,  # אשת חיל, piano: 4 C# onsets in V
 }
 
 # Clips with no source part for their column yet; they get one in B3.
-SKIP = {"hebrew-01": "no melody track (B3)",
-        "lifestyle-02": "no harmony track (B3)"}
+SKIP = {"hebrew-01": "no melody yet: needs the recording in sources/עברית/ or a hand-written line"}
 
 MAX_MOVE = 4        # semitones a non-root note may move
 GRACE = 0.03        # s: a note a hair early belongs to the next half bar
@@ -188,6 +197,10 @@ def build(asset, clip):
     """Write the clip's part. Returns a report row, or raises PartError."""
     cid = clip["id"]
     instrument, program, bank, role = INSTRUMENTS[asset]
+    if role == "drums":
+        if cid not in KITS:
+            raise PartError(f"no drum kit for {cid} in KITS")
+        program = KITS[cid]
     pm = pretty_midi.PrettyMIDI(os.path.join(ROOT, clip["source"]))
     if abs(pm.get_tempo_changes()[1][0] - BPM) > 1e-6:
         raise PartError(f"{clip['source']} is not at the library tempo {BPM:g}")
@@ -195,7 +208,12 @@ def build(asset, clip):
     part = copy.deepcopy(src)
     row = {"clip": cid, "instrument": instrument, "track": src.name, "moved": "-", "rotation": 0,
            "octaves": 0, "csharp": "-", "notes": len(part.notes)}
-    if role == "melody":
+    if role == "drums":
+        if not src.is_drum:
+            raise PartError(f"track {src.name!r} is not on the drum channel")
+        if src.program != program:
+            raise PartError(f"track {src.name!r} plays kit {src.program}, but KITS has {program}")
+    elif role == "melody":
         row["melody_cs_outside_v"] = sum(1 for n in part.notes if n.pitch % 12 == CSHARP and chord_at(n.start) != "V")
     else:
         has_cs = any(n.pitch % 12 == CSHARP for n in part.notes)
@@ -216,7 +234,7 @@ def build(asset, clip):
         moved, kept = revoice(part, role)
         row.update(moved=f"{moved}/{len(part.notes)}", rotation=r, csharp=f"{kept}/{cs_in}" if cs_in else "-")
     row["shortened"] = untangle(part)
-    row["octaves"] = fit_range(part, instrument)
+    row["octaves"] = 0 if role == "drums" else fit_range(part, instrument)
     part.name, part.program, part.is_drum = instrument, program, bank == 128
     out = pretty_midi.PrettyMIDI(initial_tempo=BPM, resolution=960)
     out.instruments.append(part)
@@ -241,10 +259,7 @@ def main():
         asset, clip = every[cid]
         pm = pretty_midi.PrettyMIDI(os.path.join(ROOT, clip["source"]))
         print(f"{cid:13s} {clip['source']}: tracks {[i.name for i in pm.instruments]}")
-        instrument, _, _, role = INSTRUMENTS[asset]
-        if role is None:
-            skipped.append((cid, f"no {instrument} source part yet (B3)"))
-            continue
+        role = INSTRUMENTS[asset][3]
         if cid in SKIP:
             try:
                 source_track(pm, role)

@@ -271,6 +271,14 @@ def build(slug, pick, verbose=True, out_dir=None):
         u = LOOP / man["units"]
         bass.notes = [pretty_midi.Note(88, pretty_midi.note_name_to_number(p), s * u, (s + n) * u - min(0.04, 0.1 * n * u)) for s, n, p in man["bass"]]
     pm.instruments += [m, bass, h]
+    if man and man.get("drums"):                                    # the drum part, eight bars of (sixteenth, GM drum key, velocity)
+        dr = man["drums"]
+        if len(dr["bars"]) != 8: raise ValueError(f"{slug}: drums needs eight bars")
+        d = pretty_midi.Instrument(program=dr["kit"], is_drum=True, name="drums")
+        for b, hits in enumerate(dr["bars"]):
+            for s, key, vel in hits:
+                t = b * 4 * BEAT + s * BEAT / 4; d.notes.append(pretty_midi.Note(vel, key, t, t + 0.1))
+        pm.instruments.append(d)
     out = f"{out_dir or R + '/midi'}/{slug}.mid"; os.makedirs(os.path.dirname(out), exist_ok=True); pm.write(out)
     cov = sum(n for _, n, _ in clean) / nslots
     inscale = np.mean([((p - 5) % 12) in MAJ for _, _, p in clean]) if clean else 0

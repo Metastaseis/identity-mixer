@@ -16,6 +16,8 @@ Optional:
   bass     [(first step, steps, note)]: the bass line written out, instead of roots and fifths;
            or "eighths": the root on every eighth note
   lead     General MIDI program of the melody instrument (default 73, flute)
+  drums    dict(kit=GM drum kit (bank 128 program), bars=[eight bars, each [(sixteenth 0-15, GM drum key, velocity)]]):
+           the drum part, written by arr.py as a track named "drums" on the drum channel
 """
 
 SONGS = {
@@ -191,6 +193,11 @@ SONGS = {
             (64, 4, "F2"), (68, 4, "C3"), (72, 4, "A2"), (76, 4, "E2"), (80, 4, "D2"), (84, 4, "D2"), (88, 4, "G2"), (92, 4, "A2"),
             (96, 4, "Bb2"), (100, 4, "D3"), (104, 4, "C3"), (108, 4, "E3"), (112, 4, "F2"), (116, 4, "C3"), (120, 4, "F2"), (124, 4, "A2"),
         ],
+        # Drums: the separated drum track of this section shows an even eighth-note pulse but no beat that recurs in half
+        # the bars (pipeline/arrange/drums.py), so this is written in the song's folk feel instead: kick on 1 and 3,
+        # a soft snare on 2 and 4, eighth-note hats. Jazz kit.
+        drums=dict(kit=32, bars=[[(0, 36, 95), (8, 36, 85), (4, 38, 70), (12, 38, 75)]
+                                 + [(e, 42, 70 if e % 4 == 0 else 50) for e in range(0, 16, 2)]] * 8),
     ),
     # The opening phrase as sung on the record (Porat Nov with Sinai Tor), one step = one sixteenth of the loop's 4/4.
     # The song's own beat is half the tracked one (68 to the minute, the drum plays dum - dum - dum dum dum -), so the
@@ -214,6 +221,11 @@ SONGS = {
             (64, 7, "G2"), (72, 5, "G2"), (78, 2, "G2"), (80, 4, "G2"), (84, 4, "G2"), (88, 4, "D3"), (92, 4, "G2"),
             (96, 7, "Bb2"), (104, 5, "Bb2"), (110, 2, "Bb2"), (112, 4, "C3"), (116, 4, "C3"), (120, 4, "G2"), (124, 4, "A2"),
         ],
+        # Drums, read off the separated drum track (pipeline/arrange/drums.py): every bar hits low, mid and high together
+        # on beats 1 and 3, with a light high hit on beat 2; the dum - dum - dum dum dum - of one song bar spans two
+        # loop bars. The dum is a kick with a low floor tom, the high hits are closed hats. Standard kit.
+        drums=dict(kit=0, bars=[[(0, 36, 110), (0, 41, 80), (0, 42, 100), (4, 42, 80), (8, 36, 100), (8, 41, 75), (8, 42, 95), (12, 42, 65)],
+                                [(0, 36, 110), (0, 41, 80), (0, 42, 100), (4, 36, 95), (4, 41, 70), (4, 42, 85), (8, 36, 100), (8, 41, 75), (8, 42, 95), (12, 42, 65)]] * 4),
     ),
     # Verse 1, lines 1-2 (four half-lines of two bars), in 4/4: one step = one sixteenth. Original key C sharp minor, here D minor.
     #   syllables per phrase: (rest) 6 | 2 | 4 | 1 | 6 | 2 | 4 | 1
