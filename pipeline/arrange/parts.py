@@ -3,9 +3,9 @@
 
 Each column of the app plays one instrument (INSTRUMENTS). For a clip, this takes the
 track of the clip's song MIDI (the clip's `source` in manifest.json) that plays the
-column's role, re-voices it onto HARMONY, and writes it as
+column's role, re-voices it onto HARMONY, and writes it as the clip's `part`,
 midi/parts/<slug>--<instrument>.mid: one track named after the instrument, carrying
-its GM program, at the library tempo, 8 bars.
+its GM program, at the library tempo, 8 bars. rerender.py renders it to the clip's WAV.
 
 Roles, by track name in the song MIDI:
   melody  = melody | clarinet           notes unchanged
@@ -240,6 +240,8 @@ def build(asset, clip):
     out.instruments.append(part)
     slug = os.path.splitext(os.path.basename(clip["source"]))[0]
     row["file"] = f"{OUT_DIR}/{slug}--{instrument}.mid"
+    if clip.get("part") != row["file"]:
+        raise PartError(f"manifest part is {clip.get('part')!r}, but the part is {row['file']}")
     os.makedirs(os.path.join(ROOT, OUT_DIR), exist_ok=True)
     out.write(os.path.join(ROOT, row["file"]))
     return row

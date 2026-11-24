@@ -1,61 +1,98 @@
 #!/usr/bin/env python3
-"""rerender.py — render every MIDI clip of the library again (after a change to the renderer or its sound).
+"""rerender.py — render the library again from committed MIDI: each clip is its instrument part, rendered.
 
-Everything comes from committed files, so a fresh clone can run it (it needs only the pinned SoundFont,
-Merlin.sf2: see pipeline/README.md). The fifteen songs of songs.py are rendered from their committed
-midi/<slug>.mid by finish.py: clip, stems and stems_gain, no recordings or caches. (To change one of them,
-edit manual.py and run convert.py <slug> --apply instead.) Every other MIDI clip is rendered again from the MIDI files the manifest already names: the clip from its
-`source`, each stem from its own `midi`, and `stems_gain` is measured again. Then run pipeline/check_library.py.
+  1. parts.py writes every clip's `part` (midi/parts/<slug>--<instrument>.mid) from its song MIDI (`source`).
+  2. Each part is rendered to the clip's `file` (clips/<clip id>.wav) by render_midi.py with the pinned
+     SoundFont, as an exact loop of the library grid, then brought to -16 LUFS integrated by the pipeline's
+     peak limiter (analyze.normalize_loop, ceiling PEAK), so sparse hits such as drums reach the loudness
+     without touching full scale.
+
+Everything comes from committed files: the song MIDI in midi/ is rendered as it is. A fresh clone with
+Merlin.sf2 (pipeline/README.md) rebuilds every part and every clip with this script. Regenerating a song's
+midi/<slug>.mid from manual.py needs the analysis caches of its recording, so that stays with
+convert.py <slug> --apply, which then calls apply_song() here for that clip. The manifest's clips are not
+changed here (only apply_song adds a new one); run pipeline/check_library.py afterwards.
+
+usage (repo root, venv active): python pipeline/arrange/rerender.py [clip ids ...]   (none = every clip)
 """
-import json, os, subprocess, sys
-import numpy as np, soundfile as sf, pyloudnorm as pyln
+import os, subprocess, sys
+
+import numpy as np
+import soundfile as sf
+
 W = os.path.dirname(os.path.abspath(__file__)); R = os.path.dirname(os.path.dirname(W))
 sys.path.insert(0, W); sys.path.insert(0, f"{R}/pipeline")
-from songs import SONGS
-from prepare_clip import load_manifest, save_manifest
-from render_midi import render, manifest_defaults
-from analyze import limit_peaks
-import sf2
+from prepare_clip import load_manifest, save_manifest  # noqa: E402
+from render_midi import render, manifest_defaults, SR  # noqa: E402
+from analyze import normalize_loop, integrated_loudness  # noqa: E402
+import sf2  # noqa: E402
 
-try:
-    sf2.find(R)                     # stop before touching anything if the SoundFont is missing or different
-except sf2.SoundFontError as e:
-    sys.exit(f"error: {e}")
+TARGET = -16.0      # LUFS integrated, every clip
+RENDER_LUFS = -20.0 # the render's own level: low enough that its soft clip barely touches the peaks
+PEAK = 0.95         # peak ceiling of a clip (check_library.py fails at 0.999)
+NOTE = "{instrument}, {bars} תיבות ב-{tempo:g} BPM{key}"
+CREDIT = "עיבוד MIDI"
 
-py = f"{R}/.venv/bin/python"
-ours = {f"midi/{slug}.mid": slug for slug in SONGS}
-only = set(sys.argv[1:])            # clip ids; none = all
-for a in load_manifest(R)["assets"]:
-    for c in a["clips"]:
-        src = c.get("source", "")
-        if not src.startswith("midi/") or (only and c["id"] not in only): continue
-        if src in ours:
-            r = subprocess.run([py, f"{W}/finish.py", ours[src]], capture_output=True, text=True, cwd=R)
-            print(f"{c['id']:13s} {c['title']}: " + ("rebuilt" if r.returncode == 0 else "FAILED " + (r.stderr or r.stdout)[-300:]), flush=True)
-            continue
-        stems, gain_note = c.get("stems"), ""
-        r = subprocess.run([py, f"{R}/pipeline/library.py", "replace", c["id"], "--midi", src], capture_output=True, text=True, cwd=R)
-        if r.returncode: print(f"{c['id']}: FAILED {(r.stderr or r.stdout)[-300:]}"); continue
-        if stems:
-            bpm, bars, bpb = manifest_defaults(R); total = None
-            for s in stems:
-                quiet = any(k in s["id"] for k in ("darbuka", "drum", "perc"))      # sparse hits: same loudness would mean huge peaks
-                y, _ = render(f"{R}/{s['midi']}", f"{R}/{s['file']}", bpm, c.get("bars", bars), bpb, lufs=-21.0 if quiet else -16.0, log=lambda *_: None)
-                total = y if total is None else total + y
-            meter = pyln.Meter(44100)
-            for _ in range(3):          # plucks and drum hits that land together: shave the stems' peaks a little so the sum fits at -16 LUFS
-                gain = 10 ** ((-16.0 - meter.integrated_loudness(total)) / 20)
-                if float(np.abs(total).max()) * gain <= 0.97: break
-                ys = [sf.read(f"{R}/{s['file']}", dtype="float64")[0] for s in stems]
-                ceiling = 0.88 * max(float(np.abs(y).max()) for y in ys); total = None
-                for s, y in zip(stems, ys):
-                    y, _ = limit_peaks(y, 44100, ceiling); sf.write(f"{R}/{s['file']}", y, 44100, subtype="PCM_16")
-                    total = y if total is None else total + y
-            pk = float(np.abs(total).max()) * gain
-            if pk > 0.98: gain *= 0.98 / pk
-            m = load_manifest(R)
-            for a2 in m["assets"]:
-                for c2 in a2["clips"]:
-                    if c2["id"] == c["id"]: c2["stems"] = stems; c2["stems_gain"] = round(float(gain), 3)
-            save_manifest(m, f"{R}/manifest.json"); gain_note = f", {len(stems)} stems, stems_gain {gain:.3f}"
-        print(f"{c['id']:13s} {c['title']}: rendered again{gain_note}", flush=True)
+
+def render_clip(clip, m, log=print):
+    """Render the clip's part into its file. Returns (lufs, peak, limiter dB)."""
+    bpm, bars, bpb = float(m["tempo"]), int(clip.get("bars", m["bars"])), int(m["beats_per_bar"])
+    out = f"{R}/{clip['file']}"
+    y, _ = render(f"{R}/{clip['part']}", out, bpm, bars, bpb, lufs=RENDER_LUFS, log=lambda *_: None)
+    y, lufs, red = normalize_loop(y, SR, TARGET, ceiling=PEAK)
+    sf.write(out, y, SR, subtype="PCM_16")
+    z, _ = sf.read(out, dtype="float64")
+    lufs, pk = integrated_loudness(z, SR), float(np.abs(z).max())
+    log(f"{clip['id']:13s} {clip['part']:52s} -> {clip['file']}  {lufs:6.2f} LUFS, peak {pk:.3f}"
+        + (f", limited {red:.1f} dB" if red > 0.05 else ""))
+    return lufs, pk, red
+
+
+def run_parts(ids=()):
+    r = subprocess.run([sys.executable, f"{W}/parts.py", *ids], capture_output=True, text=True, cwd=R)
+    if r.returncode:
+        sys.exit(f"parts.py failed:\n{r.stdout[-2000:]}{r.stderr[-2000:]}")
+    print(r.stdout.strip().splitlines()[-1])
+
+
+def apply_song(slug):
+    """After convert.py has written midi/<slug>.mid: its clip (added at the end of its asset if it is new,
+    which bumps the manifest version), its part, and its render."""
+    from songs import SONGS
+    from parts import INSTRUMENTS
+    asset_id, _, title = SONGS[slug]
+    m = load_manifest(R); asset = next(a for a in m["assets"] if a["id"] == asset_id)
+    clip = next((c for c in asset["clips"] if c["source"] == f"midi/{slug}.mid"), None)
+    if clip is None:
+        inst = INSTRUMENTS[asset_id][0]
+        used = {c["id"] for c in asset["clips"]}
+        cid = next(f"{asset_id}-{k:02d}" for k in range(1, 100) if f"{asset_id}-{k:02d}" not in used)
+        clip = {"id": cid, "title": title,
+                "note": NOTE.format(instrument=asset["instrument"]["name"], bars=m["bars"], tempo=m["tempo"],
+                                    key="" if inst == "drums" else ", רה מינור"),
+                "file": f"clips/{cid}.wav", "source": f"midi/{slug}.mid", "part": f"midi/parts/{slug}--{inst}.mid", "credit": CREDIT}
+        asset["clips"].append(clip); m["version"] += 1
+        save_manifest(m, f"{R}/manifest.json")
+        print(f"added {cid} ({title}) to {asset_id}; manifest version {m['version']}")
+    run_parts([clip["id"]])
+    render_clip(clip, m)
+
+
+def main(ids):
+    try:
+        sf2.find(R)                 # stop before touching anything if the SoundFont is missing or different
+    except sf2.SoundFontError as e:
+        sys.exit(f"error: {e}")
+    m = load_manifest(R)
+    clips = [c for a in m["assets"] for c in a["clips"]]
+    unknown = set(ids) - {c["id"] for c in clips}
+    if unknown:
+        sys.exit(f"error: unknown clip id(s): {', '.join(sorted(unknown))}")
+    run_parts(ids)
+    for c in clips:
+        if not ids or c["id"] in ids:
+            render_clip(c, m)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

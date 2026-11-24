@@ -2,7 +2,7 @@
 
 For a song whose recording does not carry the tune clearly (spoken, very free, several voices), the
 melody people know is written here instead of being taken from the singer. arr.py uses an entry here
-in place of the pitch track and of the detected chords; rendering and stems are the same.
+in place of the pitch track and of the detected chords; parts and rendering are the same.
 
 Each song:
   units    grid steps across the 8-bar loop

@@ -2,12 +2,12 @@
 
 ## Product summary
 
-Identity Mixer is a phone-first, Hebrew (RTL) static web app for מכינה workshops. Six mixer channels stand for six assets of Jewish identity: עברית, ישראל, עולם ערכים, תרבות, זכרון הסטורי, אורח חיים. A participant picks one clip per asset from a curated audio library, sets each fader to how strongly that asset lives in them, and hears all six loop together in sync and in key. The fader positions become a six-axis "profile" shape the participant can share with the facilitator.
+Identity Mixer is a phone-first, Hebrew (RTL) static web app for מכינה workshops. Six mixer channels stand for six assets of Jewish identity: עברית, ישראל, עולם ערכים, תרבות, זכרון הסטורי, אורח חיים. Each channel plays one instrument (עברית a clarinet, ישראל drums, עולם ערכים a bass, תרבות a guitar, זכרון הסטורי a violin, אורח חיים a piano). A participant picks a song per asset, and the channel plays that instrument's part of the song; sets each fader to how strongly that asset lives in them; and hears all six loop together in sync, in key and on one shared chord progression. The fader positions become a six-axis "profile" shape the participant can share with the facilitator.
 
 ## Design invariants
 
-1. **One tempo, one key, fixed in `manifest.json`.** The whole library shares a single tempo and a single key. All synchronisation and harmonisation work happens in the preparation pipeline, never at runtime. The player's audio jobs: start all loops together on one shared grid, swap a channel in place on that grid when a song changes, and keep them running.
-2. **Every clip is an exact whole-bar loop.** Default length is 8 bars at the shared tempo, stored as WAV (mono, 44.1 kHz, 16-bit) so the sample count is exact. MP3 cannot hold an exact loop length: encoders pad the stream and decoders trim differently, so an MP3 loop drifts against the others. Every clip is loudness-matched so faders mean the same thing across assets. The player loops each source over its grid length (`loopEnd`), never over the decoded buffer length.
+1. **One tempo, one key, one progression.** The whole library shares a single tempo and key, fixed in `manifest.json`, and a single chord progression (`HARMONY` in `pipeline/arrange/parts.py`) that every bass and harmony part is re-voiced onto, so any part of one column fits any part of another (`fit.py` checks every combination). All synchronisation and harmonisation work happens in the preparation pipeline, never at runtime. The player's audio jobs: start all loops together on one shared grid, swap a channel in place on that grid when a song changes, and keep them running.
+2. **Every clip is one instrument part, rendered as an exact whole-bar loop.** Default length is 8 bars at the shared tempo, stored as WAV (mono, 44.1 kHz, 16-bit) so the sample count is exact. MP3 cannot hold an exact loop length: encoders pad the stream and decoders trim differently, so an MP3 loop drifts against the others. Every clip is at −16 LUFS so faders mean the same thing across assets. There are no stems: a clip is one file. The player loops each source over its grid length (`loopEnd`), never over the decoded buffer length.
 3. **No build step, no framework.** The app is `index.html` + `app.js` + `profile.js` + `styles.css` + `manifest.json` + `clips/`. It deploys as plain static files to any host.
 4. **Hebrew, RTL, phone-first, iOS Safari compatible.** The `AudioContext` is created and resumed only inside the play tap, because iOS refuses audio that is not user-initiated.
 5. **One copy of every file, versioned with Git.** No `*_v2` files, no duplicate folders, no "backup" copies. History lives in Git.
@@ -19,21 +19,26 @@ index.html            Single page: mixer UI, profile view, share
 profile.js            SVG radar profile, shared with facilitator/ later
 app.js                Manifest loading, Web Audio scheduling, faders, profile
 styles.css            RTL, phone-first layout
-manifest.json         Shared tempo/key/bars + assets + clips
-clips/                Prepared loops (WAV mono 44.1 kHz 16-bit, committed)
-midi/                 MIDI behind every MIDI-rendered clip: the source of truth for those clips (committed)
+manifest.json         Shared tempo/key/bars + assets (each with its instrument) + clips
+clips/                Rendered parts, one per clip (WAV mono 44.1 kHz 16-bit, committed)
+midi/                 Song MIDI, one per clip (its "source"): the source of truth (committed)
+  parts/              One instrument part per clip, re-voiced onto the shared progression (committed)
   alternates/         Alternate feels, not in the library
 sources/              Original recordings and SoundFonts (git-ignored, never committed)
 pipeline/
-  prepare_clip.py     Source recording -> prepared loop + manifest entry
-  library.py          list / add / replace / remove clips; every change bumps the manifest version
-  render_midi.py      .mid -> exact loop at the manifest tempo; library.py --midi uses it
+  prepare_clip.py     Manifest reading and writing; its recording CLI is retired (clips are rendered parts)
+  library.py          list / remove clips; every change bumps the manifest version
+  render_midi.py      .mid -> exact loop at the manifest tempo; rerender.py uses it
   sf2.py              SoundFont sample player; render_midi.py plays sampled instruments through it
   analyze.py          Report BPM / key / downbeat of a source file
-  check_library.py    Verify every manifest clip and stem exists, loops exactly, matches tempo and loudness
+  check_library.py    Verify every clip, its part and its source; exact loops, loudness, no unreferenced files; runs fit.py
   requirements.txt    Python dependencies
   README.md           The pipeline tools and how to run them
   arrange/            Hand-written arrangements (manual.py) -> midi/, and the tools to write them; caches git-ignored
+    parts.py          Song MIDI -> each clip's instrument part (midi/parts/), re-voiced onto HARMONY
+    fit.py            Clash score of every combination of parts across columns
+    rerender.py       parts.py, then one render per clip: rebuilds the library from committed MIDI
+    convert.py        A recording -> midi/<slug>.mid (--apply: then its part and its clip)
 facilitator/          Planned (Phase 4), not yet present
   index.html          Room view: overlay of participant profiles
 README.md             How to run, how to add a clip, how to deploy
@@ -60,24 +65,25 @@ Each asset:
 |---------------|--------|-------------------------------------------------|
 | `id`          | string | Stable ASCII slug used in filenames and URLs    |
 | `name`        | string | Hebrew display name                             |
+| `instrument`  | object | `{ id, name }`: the instrument this channel plays; `id` as in `INSTRUMENTS` in `parts.py` (clarinet, drums, bass, guitar, violin, piano), `name` in Hebrew |
 | `color`       | string | CSS colour for the channel and the profile axis |
 | `description` | string | One Hebrew sentence shown under the channel     |
-| `clips`       | array  | Prepared loops available for this asset         |
+| `clips`       | array  | The rendered parts available for this asset, one per song |
 
 Each clip:
 
 | Field    | Type   | Meaning                                                   |
 |----------|--------|-----------------------------------------------------------|
-| `id`     | string | `<asset>-NN`, matches the filename                        |
-| `title`  | string | Hebrew title shown in the clip picker                     |
-| `note`   | string | One short Hebrew line: what this clip is and why it fits  |
-| `file`   | string | Path relative to repo root, e.g. `clips/hebrew-01.wav`    |
-| `source` | string | Where the audio came from: the MIDI path (`midi/<name>.mid`) for a rendered clip, as every current clip is, or the recording's filename under `sources/` for a prepared one |
+| `id`     | string | `<asset>-NN`, matches the filename; stable, phones save a clip's position |
+| `title`  | string | Hebrew song title shown in the song menu                  |
+| `note`   | string | One short Hebrew line describing the part, e.g. "קלרינט, 8 תיבות ב-100 BPM, רה מינור" |
+| `file`   | string | `clips/<clip id>.wav`: the rendered part                  |
+| `source` | string | `midi/<slug>.mid`: the song's MIDI arrangement             |
+| `part`   | string | `midi/parts/<slug>--<instrument>.mid`: the instrument's part of the song, what gets rendered |
 | `credit` | string | Performer / origin / licence note                         |
 | `bars`   | number | Optional. Loop length override for this clip              |
-| `tempo_ratio` | number | Optional. Source was stretched to tempo × this (0.5, 1.5, 2) |
-| `stems`  | array  | Optional. `[{ id, name, file, midi }]`: per-instrument loops of the same length under `clips/stems/`, their MIDI under `midi/stems/`. The player then plays the stems instead of `file`, all started at the shared time, each behind its own on/off gain that feeds the channel fader. Every stem starts off, when the app opens and after every song change. `file` then plays only if a stem fails to load. `name` is the Hebrew chip label |
-| `stems_gain` | number | Required with `stems`. Linear trim applied to every stem so that all stems together sit at −16 LUFS like a plain clip. Computed by the pipeline. Stems are not each at −16 LUFS: in the first six clips they are (the darbuka sits at −21); in the later fifteen the melody is at −14 and the accompaniment at −20. `check_library.py` enforces the sum only: the stems summed at `stems_gain` reach −16 ± 1 LUFS without touching full scale |
+
+The player plays `file` on the channel's fader. Until B5 `app.js` still carries the code for the old `stems` field; no clip has stems.
 
 Example with one asset:
 
@@ -92,16 +98,18 @@ Example with one asset:
     {
       "id": "hebrew",
       "name": "עברית",
+      "instrument": { "id": "clarinet", "name": "קלרינט" },
       "color": "#3A7BD5",
       "description": "המילים שבהן אנחנו חושבים, שרים ומתווכחים.",
       "clips": [
         {
           "id": "hebrew-01",
-          "title": "שיר ערש",
-          "note": "קול אחד, בלי ליווי. עברית כנשימה.",
+          "title": "אל אדון",
+          "note": "קלרינט, 8 תיבות ב-100 BPM, רה מינור",
           "file": "clips/hebrew-01.wav",
-          "source": "hebrew_lullaby_take2.wav",
-          "credit": "הקלטה ביתית, 2026, שימוש בהסכמה"
+          "source": "midi/hebrew-banai-bed.mid",
+          "part": "midi/parts/hebrew-banai-bed--clarinet.mid",
+          "credit": "עיבוד MIDI"
         }
       ]
     }
@@ -111,50 +119,24 @@ Example with one asset:
 
 Asset ids and canonical order: `hebrew`, `israel`, `values`, `culture`, `memory`, `lifestyle`.
 
-## Pipeline contract: `pipeline/prepare_clip.py`
+## Pipeline contract: parts and clips
 
-### CLI
+A song becomes a clip in three steps, all in `pipeline/arrange/`:
 
-```
-prepare_clip.py <source> --asset <id> --title <t> [--bpm N] [--key K] [--start seconds] [--bars N] [--tempo-ratio R]
-                [--note TEXT] [--credit TEXT] [--fade MS] [--root DIR]
-prepare_clip.py --midi <file.mid> --asset <id> --title <t> [--bars N] [--note TEXT] [--credit TEXT] [--fade MS] [--root DIR]
-```
+1. **Song MIDI.** `convert.py <slug>` writes `midi/<slug>.mid` from the song's entry in `manual.py` (melody, chords, optional bass and drums), at 100 BPM, 8 bars, D minor. Songs that are not in `songs.py` keep a hand-made `midi/<slug>.mid`.
+2. **Part.** `parts.py` takes the track of the song MIDI that plays the column's role (melody: `melody`/`clarinet`; bass: `bass`/`tuba`; harmony: `guitar`/`pad`/`oud`/`accordion`/`piano`; drums: `drums`). Melodies and drums keep their notes. Bass and harmony are re-voiced onto `HARMONY`: every note keeps its timing and velocity, a chord tone stays, any other note moves to the nearest chord tone, a bass note on a bar line or chord change takes the root, and a C# inside a V window stays. A part with C# is first rotated by whole bars (pinned in `ROTATION`) so its C#s land in the V windows. A part outside its instrument's range moves by octaves. The result is the clip's `part`.
+3. **Clip.** `rerender.py` renders each part with `render_midi.py` (pinned SoundFont, exact loop length, tail wrapped across the seam) and brings it to −16 LUFS integrated with the pipeline's peak limiter (ceiling 0.95), into `clips/<clip id>.wav`.
 
-- `<source>` is a file under `sources/`. Omit it with `--midi`.
-- `--midi` renders a `.mid` with `render_midi.py` instead: no detection, no stretch, no shift. The render becomes the master and then goes through steps 5–8. `--bpm`, `--key`, `--start` and `--tempo-ratio` don't apply.
-- `--asset` must be one of the six ids in the manifest.
-- `--title` is the Hebrew title written into the manifest.
-- `--bpm` and `--key` override detection when analysis is wrong or ambiguous.
-- `--start` is a seconds offset that overrides the detected downbeat.
-- `--bars` overrides the manifest default loop length.
-- `--tempo-ratio` (0.5, 1, 1.5, 2) stretches the source to library tempo × R and cuts bars × R source bars, so the loop still equals the library loop exactly. For sources far from the library tempo. Recorded as `tempo_ratio` in the clip entry.
-- `--note` and `--credit` fill those clip fields.
-- `--fade` sets the edge fade in ms: 5 by default for a recording, 0 for `--midi`, whose render already wraps its tail across the loop seam.
-- `--root` points at another repo root.
-
-### Steps
-
-1. **Load** the source and resample to 44.1 kHz, mixed to mono for analysis, stereo preserved through the stretch.
-2. **Detect** BPM, key and first downbeat, or take them from `--bpm`, `--key`, `--start`. Print what was detected and what was used.
-3. **Cut** exactly `bars × R` bars from the downbeat at the *source* tempo (R is `--tempo-ratio`, default 1). Length in samples is `bars * R * 4 * (60 / source_bpm) * sr`, rounded to an integer.
-4. **Stretch and shift** with `pyrubberband`: one R3 pass that time-stretches to `manifest.tempo × R` and pitch-shifts to the manifest key. The shift is relative-major-aware (a source in F major targeting D minor shifts by 0 semitones) and always uses the smallest signed semitone distance, in the range −6 to +5.
-5. **Fix the length** to exactly `bars * 4 * (60 / manifest.tempo) * sr` samples. Trim or pad by at most 10 ms; abort if the difference is larger. Write the stereo 24-bit master to `sources/prepared/` (git-ignored). Then mix to mono, normalise to −16 LUFS integrated with `pyloudnorm` (limiter ceiling 0.99 FS) and apply linear fades at both ends (`--fade`).
-6. **Export** `clips/<asset>-NN.wav` as mono 44.1 kHz 16-bit WAV with TPDF dither and the exact sample count, where `NN` is the next free two-digit index for that asset.
-7. **Append** the clip entry to `manifest.json` under the matching asset, preserving existing formatting and key order, and bump `version`.
-8. **Print** a summary: source, detected vs used BPM/key/downbeat, semitone shift, stretch ratio, loudness before/after, final length in samples and bars, output path.
-
-`check_library.py` re-derives step 5 for every clip in the manifest, requires WAV and an exact sample count, and exits non-zero on any mismatch. `analyze.py` runs step 2 only and prints the result, for auditioning sources before committing to a cut.
+`convert.py <slug> --apply` runs all three for one song and adds a new song's clip at the end of its asset (bumping `version`). `rerender.py` runs steps 2 and 3 for the whole library from committed MIDI, so a fresh clone with Merlin.sf2 rebuilds every part and clip. `check_library.py` then verifies the manifest, every clip (exact sample count, −16 ± 1 LUFS, no sample at full scale), that nothing in `clips/`, `midi/parts/` or `midi/` is unreferenced, and that `fit.py` finds no combination of parts above its TOLERANT threshold.
 
 ### Dependencies
 
-System (Homebrew): `ffmpeg`, `rubberband`.
-Python (`pipeline/requirements.txt`): `librosa`, `soundfile`, `pyrubberband`, `pyloudnorm`, `numpy`, `pretty_midi` (for `render_midi.py`). (`pydub` was dropped: it needs the `audioop` module that Python 3.13 removed. `ffmpeg` is used only by librosa as a decoder for source files.)
+Python (`pipeline/requirements.txt`): `librosa`, `soundfile`, `pyloudnorm`, `numpy`, `scipy`, `pretty_midi`, and `pyrubberband` (with Homebrew `rubberband`), which only the retired recording path in `prepare_clip.py` imports. The recording tools in `arrange/` also use `ffmpeg` (decoding) and a separate Demucs environment (`arrange/sep.py`).
 
 ## Phases
 
 1. **Bootstrap.** Build the app from the prototype: six channels, faders, play/stop, profile shape. Test on a real phone over the local network. Done.
-2. **Pipeline.** Implement `prepare_clip.py`, `analyze.py`, `check_library.py`. Prepare one real clip per asset. `check_library.py` is green. Done.
+2. **Pipeline.** Implement `prepare_clip.py`, `analyze.py`, `check_library.py`. Prepare one real clip per asset. `check_library.py` is green. Done; since then the library moved to MIDI-rendered songs and then to one instrument part per clip.
 3. **Deploy.** Publish to GitHub Pages. Generate a QR code for the room. Done.
 4. **Sharing.** Encode the profile in the URL (`?p=60,40,90,20,70,50`). Build `facilitator/index.html` to overlay many profiles in one view. Not started.
 5. **Depth and polish.** Several clips per asset: done. PWA manifest and offline cache, visual and copy polish: not started.

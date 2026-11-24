@@ -4,7 +4,7 @@ Project rules for every session. Read `ARCHITECTURE.md` for the full design. Whe
 
 ## What this is
 
-A phone-first Hebrew web app for educational workshops. Six faders, one per "identity asset", each driving a curated musical loop. Participants balance the faders and the app shows the result both as music (the mix) and as a radar profile. It runs in a room full of phones from a QR code, so it must load fast, start on the first tap, and stay in sync.
+A phone-first Hebrew web app for educational workshops. Six faders, one per "identity asset", each playing one instrument: the part that instrument plays in a song chosen for that column. Participants balance the faders and the app shows the result both as music (the mix) and as a radar profile. It runs in a room full of phones from a QR code, so it must load fast, start on the first tap, and stay in sync.
 
 Live at https://metastaseis.github.io/identity-mixer/ (GitHub Pages, `main` root).
 
@@ -13,22 +13,23 @@ Live at https://metastaseis.github.io/identity-mixer/ (GitHub Pages, `main` root
 Use these words and only these words, in code, commits and conversation:
 
 - **asset** — one of the six identity dimensions. Each asset owns one channel.
-- **channel** — the runtime unit: one fader, one `GainNode`, one or more running sources.
-- **clip** — one song part rendered as an exact whole-bar loop at the library tempo and key. An asset has several clips; one clip per asset is loaded at a time, chosen from the song menu under its column.
-- **stem** — a sub-part of a clip (e.g. bass, guitar, melody). Toggled on/off instantly inside a channel.
-- **library** — everything `manifest.json` registers: tempo, key, clips, stems.
+- **instrument** — the one instrument an asset's channel plays (clarinet, drums, bass, guitar, violin, piano).
+- **part** — a song's MIDI line for its column's instrument, re-voiced onto the shared progression, in `midi/parts/`.
+- **channel** — the runtime unit: one fader, one `GainNode`, one running source.
+- **clip** — one part rendered as an exact whole-bar loop at the library tempo and key. An asset has several clips, one per song; one clip per asset is loaded at a time, chosen from the song menu under its column.
+- **library** — everything `manifest.json` registers: tempo, key, instruments, clips and their parts.
 - **profile** — the six fader values as a vector, drawn as the SVG radar.
 
-Don't introduce synonyms (track, layer, voice, sample, loop, dimension, category).
+Don't introduce synonyms (track, layer, voice, sample, loop, dimension, category, stem). A MIDI file's tracks and Demucs's separated audio are the only other "tracks" and "stems", and they stay inside `pipeline/arrange/`.
 
 ## Invariants (never break these)
 
-1. One tempo and one key for the whole library, fixed in `manifest.json`. Sync and harmony are solved in `pipeline/`, never at runtime. The player only starts loops on one shared grid (together on play, or in place on a song change).
-2. Every clip and every stem is an exact whole-bar loop (default 8 bars) at the shared tempo. Every clip is normalised to −16 LUFS; a clip's stems, summed at its `stems_gain`, reach −16 LUFS (see Audio library rules).
+1. One tempo, one key and one shared progression for the whole library: tempo and key fixed in `manifest.json`, the progression (`HARMONY`) in `pipeline/arrange/parts.py`. Sync and harmony are solved in `pipeline/`, never at runtime. The player only starts loops on one shared grid (together on play, or in place on a song change).
+2. Every clip is one instrument part, rendered as an exact whole-bar loop (default 8 bars) at the shared tempo and normalised to −16 LUFS. No stems.
 3. No build step, no framework, no package manager. `index.html` + `app.js` + `profile.js` + `styles.css` + `manifest.json` + `clips/`, deployable as static files. Plain `<script>` tags, as `index.html` already does.
 4. Hebrew, RTL, phone-first, iOS Safari compatible. Create and resume the `AudioContext` only inside the play tap handler.
 5. One copy of every file, versioned with Git. Never create `*_v2`, `*_old`, `*_backup`, `*_new` files or duplicate folders. Edit in place and commit.
-6. MIDI is the source of truth for audio; WAV is a build product. Fix a clip by editing the MIDI and re-rendering, never by editing a WAV.
+6. MIDI is the source of truth for audio; WAV is a build product. Fix a clip by editing the song's MIDI (or `manual.py`), regenerating its part and re-rendering, never by editing a WAV or a part by hand.
 
 ## The six assets
 
@@ -50,14 +51,12 @@ The order is semantic, not alphabetical. Arrays of channels, faders, radar axes 
 ```
 ~/Projects/Assets/            the repo (NOT on Desktop — Desktop is a synced folder and hangs the venv)
 ├── index.html                shell, viewport meta, dir="rtl" lang="he"
-├── app.js                    audio engine, faders, song menus, stem chips, transport
+├── app.js                    audio engine, faders, song menus, stem chips (until B5), transport
 ├── profile.js                six-axis vector → SVG radar
 ├── styles.css                phone layout, RTL, touch targets
-├── manifest.json             the library registry: version, tempo, key, bars, clips, stems
-├── clips/                    rendered WAV clips (build products)
-│   └── stems/                rendered WAV stems (build products)
-├── midi/                     MIDI sources, one per clip (source of truth)
-│   ├── stems/                MIDI sources, one per stem
+├── manifest.json             the library registry: version, tempo, key, bars, assets with their instrument, clips
+├── clips/                    rendered WAV clips, one per part (build products)
+├── midi/                     song MIDI, one per clip: the clip's "source" (source of truth)
 │   ├── parts/                one instrument part per clip, re-voiced onto the shared progression (arrange/parts.py)
 │   └── alternates/           alternate feels, not in the library
 ├── pipeline/                 Python: render, normalise, check
@@ -67,11 +66,12 @@ The order is semantic, not alphabetical. Arrays of channels, faders, radar axes 
 │   ├── prepare_clip.py
 │   ├── render_midi.py        MIDI → WAV at the library grid
 │   ├── sf2.py                SoundFont 2 sample player used by render_midi.py
-│   ├── library.py            add, replace, remove, list clips (bumps manifest version)
-│   ├── check_library.py
+│   ├── library.py            list and remove clips (bumps manifest version)
+│   ├── check_library.py      the library check, including fit.py
 │   └── arrange/              hand-written arrangements (manual.py) → midi/, and the tools to write them; caches git-ignored
 │       ├── parts.py          writes midi/parts/: each column's instrument part, re-voiced onto HARMONY
-│       └── fit.py            checks that every combination of parts fits together (semitone clashes)
+│       ├── fit.py            checks that every combination of parts fits together (semitone clashes)
+│       └── rerender.py       parts.py, then one render per clip; rebuilds the library from committed MIDI
 ├── sources/                  git-ignored: recordings, SoundFonts, transcription work
 ├── README.md
 ├── qr.png                    QR code for the public URL
@@ -87,19 +87,20 @@ If a file or folder you need isn't here, it probably shouldn't exist. Ask.
 
 | Changing… | Touch | Don't touch |
 |---|---|---|
-| Fader behaviour, playback, stem toggles, song swap | `app.js` | `manifest.json`, `pipeline/` |
+| Fader behaviour, playback, song swap | `app.js` | `manifest.json`, `pipeline/` |
 | Radar drawing | `profile.js`, `styles.css` | `app.js` beyond the call site |
 | Layout, copy, colours | `index.html`, `styles.css` | `app.js` |
-| Adding or replacing a clip or stem | `midi/`, run `pipeline/`, then `manifest.json` | `app.js` |
+| Adding or replacing a clip | the song in `songs.py` + `manual.py` (or its MIDI in `midi/`), then `convert.py --apply` or `rerender.py` | `app.js` |
 | Writing or changing a hand-written arrangement | `pipeline/arrange/manual.py`, then `convert.py --apply` | `app.js` |
 | Tempo or key of the library | **Don't.** This re-renders everything. Ask first. | |
 
 ## manifest.json
 
-- The only registry. Every file in `clips/` and `clips/stems/` is listed in it, and every listed file exists. `pipeline/check_library.py` checks that every listed file exists; nothing checks for unlisted files, so remove a file and its entry together.
-- `version` is an integer that every library change bumps (`library.py` does it). Phones drop saved clip choices when it changes; fader levels survive.
-- Shared `tempo`, `key`, `bars` and `beats_per_bar` (only 4 is supported) live at the top level once. No per-clip tempo, key or offset fields. A clip may override `bars`. The one per-clip level field is `stems_gain`, written by the pipeline (see Audio library rules); if a clip needs any other correction, the clip is wrong, not the manifest.
-- Clips sit in their asset's `clips` list; assets are listed in asset order. A clip's position in its asset's list is what phones save, so add new clips at the end and use `library.py replace` to keep a clip's place.
+- The only registry. Every file in `clips/` and `midi/parts/`, and every `.mid` directly in `midi/`, is listed in it, and every listed file exists; `pipeline/check_library.py` checks both ways (`midi/alternates/` is exempt).
+- `version` is an integer that every change to the clip lists bumps (`library.py`, `convert.py --apply` for a new song, or by hand with a schema change). Re-rendering clips in place doesn't. Phones drop saved clip choices when it changes; fader levels survive.
+- Shared `tempo`, `key`, `bars` and `beats_per_bar` (only 4 is supported) live at the top level once. No per-clip tempo, key, offset or level fields. A clip may override `bars`. If a clip needs any other correction, the clip is wrong, not the manifest.
+- Each asset carries `instrument`: `{"id", "name"}`, the id as in `INSTRUMENTS` in `pipeline/arrange/parts.py`, the name in Hebrew. Each clip has `id`, `title`, `note`, `credit`, `file` (`clips/<clip id>.wav`, the rendered part), `source` (`midi/<slug>.mid`, the song) and `part` (`midi/parts/<slug>--<instrument>.mid`, what gets rendered). No `stems`, no `stems_gain`.
+- Clips sit in their asset's `clips` list; assets are listed in asset order. A clip's position in its asset's list is what phones save, so add new clips at the end (`convert.py --apply` does) and keep an existing clip's id when its song changes.
 - Paths are relative to the repo root, forward slashes, no leading `/` (GitHub Pages serves from a subpath).
 - Edit it by hand or from `pipeline/`, never from `app.js`. The player reads it and never writes it.
 - Every field is read by the player or by `check_library.py`. If you need a new field, add its reader in the same commit.
@@ -107,12 +108,12 @@ If a file or folder you need isn't here, it probably shouldn't exist. Ask.
 ## Audio library rules (`pipeline/`)
 
 - Rendered, not stretched. Earlier stretched/shifted real recordings never locked to the beat; the library is MIDI-rendered on purpose. Do not reintroduce time-stretching or pitch-shifting of recordings into the library.
-- Every render goes through `pipeline/`: exact bar length at the library tempo, written to `clips/` or `clips/stems/`. A clip is normalised to −16 LUFS integrated.
+- One part per clip. `parts.py` takes the column's role from the song MIDI (melody, bass, harmony or drums) and re-voices bass and harmony onto the shared progression, `HARMONY` in `parts.py`, defined there and nowhere else; melodies and drums keep their notes. Rotations are pinned in `ROTATION`, drum kits in `KITS`.
+- Every render goes through `pipeline/arrange/rerender.py`: the part, rendered at exact bar length at the library tempo into `clips/<clip id>.wav`, brought to −16 LUFS integrated by the pipeline's peak limiter (ceiling 0.95), so each clip is as loud as every other and never touches full scale, drums included.
 - Sound: `render_midi.py` plays sampled instruments through `pipeline/sf2.py`, from the SoundFont pinned by name and checksum (`PINNED` in `sf2.py`: Merlin.sf2), found at `$MIXER_SOUNDFONT` or `sources/soundfonts/Merlin.sf2`. A render stops if it is missing or different; `MIXER_SOUNDFONT=builtin` is the only way to get the built-in synth, on purpose. `sources/` is git-ignored, so a fresh clone needs Merlin.sf2 put in place; then `pipeline/arrange/rerender.py` rebuilds the whole library from committed MIDI. Never commit a SoundFont.
-- Stems: same length, tempo, key and start as their clip. Stems are not each −16 LUFS. Their levels are a balance: the stems of the first six clips sit at −16 each (the אשת חיל darbuka at −21, so its hits don't clip); in the fifteen later songs the melody sits at −14 and the accompaniment at −20. What is enforced is the sum: a clip's stems played together at the clip's `stems_gain` reach −16 ± 1 LUFS without touching full scale. The player plays the stems at that gain instead of the full-mix file.
-- Clips and stems are mono 44.1 kHz 16-bit WAV, as the pipeline writes them (846 720 samples per 8-bar loop). WAV only: `check_library.py` rejects anything else, because MP3 can't hold an exact loop length.
+- Clips are mono 44.1 kHz 16-bit WAV, as the pipeline writes them (846 720 samples per 8-bar loop). WAV only: `check_library.py` rejects anything else, because MP3 can't hold an exact loop length.
 - Keep the total size of `clips/` in mind before adding anything: phones on a classroom Wi-Fi download each channel's selected clip before it can sound. Report the size delta in the session summary whenever `clips/` changes.
-- After adding or changing a part, run pipeline/arrange/fit.py; it must exit 0.
+- After adding or changing a part, run pipeline/arrange/fit.py; it must exit 0. `check_library.py` runs it too, so a part that clashes fails the library check.
 - Always run from the venv: `source ~/Projects/Assets/.venv/bin/activate`. Never `pip install` outside it and never without asking.
 
 ## Audio scheduling (`app.js`)
@@ -124,12 +125,10 @@ If a file or folder you need isn't here, it probably shouldn't exist. Ask.
 - Never start channels one after another with separate `currentTime` reads. Never `start()` without the shared time.
 - Song change: the new clip's sources start in place on the shared grid at `t = ctx.currentTime + SWAP_LEAD` (0.05 s) with offset `((t − startTime) mod L)`, and the old sources stop at the same `t`. Nothing else restarts.
 - Faders drive `GainNode.gain` only, through a perceptual curve (gain = level²). Use `setTargetAtTime` with `RAMP` = 0.03; never set `.value` directly while playing — it clicks.
-- Stem chips are gain switches on sources that are already running (`STEM_RAMP` = 0.02). Toggling a stem never creates or stops a source. All of a clip's stems start together.
-- Stems start off: when the app opens, and after every song change, all of the clip's stems are off; the participant turns on the voices they want. Stem state is not saved.
-- A clip's full-mix file is only a fallback for when its stems fail to load.
+- Until B5: `app.js` still has the stem code (chips as gain switches on running sources, `STEM_RAMP` = 0.02, stems starting off, the full file as a fallback). The library has no stems any more, so a clip plays its one file and no chips appear. B5 removes that code.
 - No per-channel tempo, pitch, playbackRate or detune in the player. If someone asks for one, the answer is in `pipeline/`. The only offset is the grid offset of a song change.
 - Stop stops all sources together. Rebuild sources on the next play; `AudioBufferSourceNode`s are one-shot.
-- The graph is `source → stemGain → channelGain → master → destination`. Keep it that flat.
+- The graph is `source → stemGain → channelGain → master → destination` (the `stemGain` stage goes in B5). Keep it that flat.
 - Don't add effects, analysers or compressors to the runtime graph without asking. Loudness is solved in the pipeline.
 - `?debug=1` turns on the sync self-test in the console and the status line.
 
@@ -167,7 +166,7 @@ If a file or folder you need isn't here, it probably shouldn't exist. Ask.
 2. iPhone, Safari, on the LAN URL — the real target. Sound on, silent switch off, screen not locked.
 3. After push, the public URL on the same phone — confirms paths and caching on Pages.
 
-What "passes" means: the first tap on play starts every channel on the shared grid (silently, since stems start off); turning on any stem chip is heard at once and in time with the others, with no flam on the downbeat and no click; moving any fader changes only that channel; choosing another song in a column lands on the beat, with its stems off; stop is silent; play again restarts together; the radar matches the faders.
+What "passes" means: the first tap on play starts every channel on the shared grid, each instrument at its fader's level, all in time with no flam on the downbeat and no click; there are no chips; each fader brings in or takes out its one instrument and changes nothing else; choosing another song in a column swaps that instrument's part on the beat; stop is silent; play again restarts together; the radar matches the faders.
 
 iOS-specific things to check whenever `app.js` changes: first tap after a cold load, play after backgrounding and returning, play with the phone's silent switch on (should still sound — Web Audio ignores it only if the context is resumed inside a user gesture), rotate to landscape and back.
 
@@ -183,7 +182,7 @@ There is no build. GitHub Pages serves the `main` branch root directly, so every
 
 - One task, one commit, after the phone test. Don't commit "WIP".
 - Message: imperative, present tense, one line under 72 chars, optionally a body explaining why. Prefix by concern: `player:`, `ui:`, `library:`, `pipeline:`, `docs:`.
-- Commit the MIDI, the rendered WAV and the manifest change for a clip together.
+- Commit the song MIDI, the part, the rendered WAV and the manifest change for a clip together.
 - Never force-push `main`. Never rewrite history that's been pushed.
 - Don't commit anything you haven't run. Don't push anything you haven't phone-tested.
 - This file is the Identity Mixer rules only. Documents about other projects never go in this repo.

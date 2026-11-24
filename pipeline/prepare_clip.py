@@ -141,22 +141,12 @@ def save_manifest(m, path):
     out.append('  "assets": [')
     for ai, a in enumerate(m["assets"]):
         out.append("    {")
-        for k in ("id", "name", "color", "description"):
-            out.append(f'      "{k}": {json.dumps(a[k], ensure_ascii=False)},')
+        for k in ("id", "name", "instrument", "color", "description"):
+            if k in a: out.append(f'      "{k}": {json.dumps(a[k], ensure_ascii=False)},')
         out.append('      "clips": [')
         for ci, c in enumerate(a["clips"]):
             comma = "," if ci < len(a["clips"]) - 1 else ""
-            stems = c.get("stems")
-            if not stems:
-                out.append(f"        {{ {json.dumps(c, ensure_ascii=False)[1:-1]} }}{comma}")
-                continue
-            head = {k: v for k, v in c.items() if k != "stems"}      # stems go last, one per line
-            out.append(f"        {{ {json.dumps(head, ensure_ascii=False)[1:-1]},")
-            out.append('          "stems": [')
-            for si, s in enumerate(stems):
-                out.append(f"            {{ {json.dumps(s, ensure_ascii=False)[1:-1]} }}" + ("," if si < len(stems) - 1 else ""))
-            out.append("          ]")
-            out.append(f"        }}{comma}")
+            out.append(f"        {{ {json.dumps(c, ensure_ascii=False)[1:-1]} }}{comma}")
         out.append("      ]")
         out.append("    }" + ("," if ai < len(m["assets"]) - 1 else ""))
     out.append("  ]")
@@ -317,6 +307,9 @@ def add_args(ap):
 
 
 def main():
+    sys.exit("error: clips are rendered instrument parts now (one per clip, no stems). Add a song to\n"
+             "pipeline/arrange/songs.py and manual.py and run pipeline/arrange/convert.py <slug> --apply;\n"
+             "render the library again with pipeline/arrange/rerender.py.")
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("source", nargs="?", help="source recording under sources/ (omit with --midi)")
     ap.add_argument("--asset", required=True)

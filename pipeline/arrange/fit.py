@@ -66,17 +66,20 @@ def clash(x, y):
     return float(per.mean())
 
 
-def main():
+def evaluate(root=ROOT):
+    """Score every combination of the parts in <root>/midi/parts/. Returns a dict: groups {instrument: n parts},
+    n, strict and tolerant (shares of combinations whose worst pair is within each threshold), worst
+    (score, pair, combination), pairs [(score, a, b)] worst first, over (combinations above TOLERANT)."""
     groups = defaultdict(dict)
-    for name in sorted(os.listdir(os.path.join(ROOT, PARTS_DIR))):
+    for name in sorted(os.listdir(os.path.join(root, PARTS_DIR))):
         if not name.endswith(".mid") or "--" not in name:
             continue
         slug, instrument = name[:-4].rsplit("--", 1)
         if instrument == "drums":
             continue
-        groups[instrument][slug] = profile(os.path.join(ROOT, PARTS_DIR, name))
+        groups[instrument][slug] = profile(os.path.join(root, PARTS_DIR, name))
     if len(groups) < 2:
-        sys.exit("error: need parts of at least two pitched instruments in midi/parts/")
+        raise ValueError(f"need parts of at least two pitched instruments in {PARTS_DIR}/")
     order = [v[0] for v in INSTRUMENTS.values()]                      # column order
     instruments = sorted(groups, key=lambda i: order.index(i) if i in order else len(order))
     pair = {}
@@ -89,20 +92,26 @@ def main():
         worst = max(itertools.combinations(combo, 2), key=lambda p: pair[p])
         scores.append((pair[worst], worst, combo))
     vals = np.array([s for s, _, _ in scores])
-    n = len(scores)
-    print("parts: " + ", ".join(f"{i} {len(groups[i])}" for i in instruments))
-    print(f"{n} combinations")
-    print(f"  worst pair <= STRICT {STRICT}: {np.mean(vals <= STRICT) * 100:.1f}%")
-    print(f"  worst pair <= TOLERANT {TOLERANT}: {np.mean(vals <= TOLERANT) * 100:.1f}%")
-    s, (a, b), combo = max(scores, key=lambda t: t[0])
+    return dict(groups={i: len(groups[i]) for i in instruments}, n=len(scores),
+                strict=float(np.mean(vals <= STRICT)), tolerant=float(np.mean(vals <= TOLERANT)),
+                worst=max(scores, key=lambda t: t[0]), over=int(np.sum(vals > TOLERANT)),
+                pairs=sorted(((v, a, b) for (a, b), v in pair.items()), reverse=True))
+
+
+def main():
+    r = evaluate()
+    print("parts: " + ", ".join(f"{i} {k}" for i, k in r["groups"].items()))
+    print(f"{r['n']} combinations")
+    print(f"  worst pair <= STRICT {STRICT}: {r['strict'] * 100:.1f}%")
+    print(f"  worst pair <= TOLERANT {TOLERANT}: {r['tolerant'] * 100:.1f}%")
+    s, (a, b), combo = r["worst"]
     print(f"worst combination {s:.3f}: {', '.join(combo)}")
     print(f"  its worst pair: {a} + {b}")
     print("5 worst pairs:")
-    for (a, b), v in sorted(pair.items(), key=lambda kv: -kv[1])[:5]:
+    for v, a, b in r["pairs"][:5]:
         print(f"  {v:.3f}  {a} + {b}")
-    over = int(np.sum(vals > TOLERANT))
-    if over:
-        print(f"FAIL: {over} combination(s) above TOLERANT {TOLERANT}")
+    if r["over"]:
+        print(f"FAIL: {r['over']} combination(s) above TOLERANT {TOLERANT}")
         sys.exit(1)
     print("ok: every combination is within TOLERANT")
 

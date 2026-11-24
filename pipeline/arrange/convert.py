@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""convert.py — turn recordings in sources/ into 8-bar MIDI arrangements with stems.
+"""convert.py — turn recordings in sources/ into 8-bar MIDI arrangements, and put them into the library.
 
 Run from anywhere with the project environment:
 
@@ -8,8 +8,9 @@ Run from anywhere with the project environment:
   .venv/bin/python pipeline/arrange/convert.py <slug> --start 44.6
       same, but the loop starts 44.6 s into the recording (remembered in picks.json)
   .venv/bin/python pipeline/arrange/convert.py <slug> --apply
-      also writes midi/<slug>.mid, renders the clip and one stem per track into
-      clips/ and clips/stems/, and updates manifest.json (bumps its version)
+      also writes midi/<slug>.mid, then (rerender.apply_song) the clip's instrument part in
+      midi/parts/ and its render in clips/<clip id>.wav; a new song is added to manifest.json
+      at the end of its asset (bumps its version)
   no slug = every song in songs.py.   --keep-audio keeps the separated audio.
 
 A new song: put the recording in its column folder under sources/, add one line
@@ -28,7 +29,7 @@ Steps per song
                 chord per half bar (chroma of the backing + the bass player's
                 notes), moved to D minor / F major, written as melody + bass +
                 harmony. The song's key is remembered in keys.json.
-  6. finish.py  (--apply) library.py add/replace --midi, stems, stems_gain
+  6. rerender.apply_song (--apply) the clip's part (parts.py) and its render
 
 Only the small analysis caches stay on disk (sect/, sep/<slug>/*.npz, git-ignored). After
 --apply run pipeline/check_library.py. To render the library again from the
@@ -47,7 +48,7 @@ Songs written by hand (manual.py; since 2026-11-19 all fifteen)
     convert.py <slug> --keep-audio      dry run into out/
     judge.py <slug>       the dry run against the recording: written notes vs the singer, chords vs the band,
                           and the rendered clip vs the recording
-    convert.py <slug> --apply ; played.py <slug>   (does the stem sound the written notes?)
+    convert.py <slug> --apply ; fit.py   (does the part fit every other column's parts?)
   Bar positions in notes.py count from 1: the beat of a note is (bar - 1) * beats per bar + beat - 1.
 
 Checks (left in sources/transcribe/, not in Git; both need a sung-line song, and all fifteen are now hand-written)
@@ -120,7 +121,8 @@ def main():
         json.dump(picks, open(PICKS, "w"), indent=1)
         build(slug, pick, out_dir=None if a.apply else f"{W}/out")
         if a.apply:
-            subprocess.run([sys.executable, f"{W}/finish.py", slug], check=True)
+            from rerender import apply_song
+            apply_song(slug)
 
 
 if __name__ == "__main__":

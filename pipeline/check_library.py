@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
-"""Verify manifest.json and every clip it references. Exit 0 means green.
+"""Verify manifest.json, every clip it references, and that the parts fit together. Exit 0 means green.
+
+The library is one instrument part per clip: each asset's channel plays one instrument, and each of its
+clips is that instrument's part of a song, rendered.
 
 Checks:
-  * manifest shape: version, tempo, key, bars, beats_per_bar (must be 4), exactly six
-    assets in the canonical order with the canonical ids and names
-  * every clip: required fields, id matches filename, file is WAV, exists, decodes
-  * loop length: samples == bars * beats_per_bar * 60 / tempo * sr, exactly.
-    Only WAV is accepted: MP3 cannot hold an exact sample count (encoder padding,
-    decoder-dependent trimming), so an MP3 loop drifts against the others.
-  * loudness: integrated LUFS within -16 ± 1
-  * clipping: any sample at or above 0.999 full scale
-  * stems (optional per clip): fields, unique ids, WAV exists and has exactly the
-    clip's loop length, the .mid exists, and the stems summed at the clip's
-    stems_gain sit within -16 ± 1 LUFS without touching full scale (the player
-    plays the stems at that gain instead of the full file)
-  * stray MIDI: every .mid directly in midi/ or midi/stems/ is some clip's source or
-    some stem's midi (midi/alternates/ holds alternate feels outside the library and
-    is not checked)
+  * manifest shape: version, tempo, key, bars, beats_per_bar (must be 4); exactly six assets in the
+    canonical order with the canonical ids and names, each with its instrument {id, name}, the id as in
+    INSTRUMENTS of pipeline/arrange/parts.py
+  * every clip: its fields; id, file and part named by convention (clips/<id>.wav,
+    midi/parts/<source slug>--<instrument>.mid); no stems
+  * its part (.mid) and its source (.mid) exist; its WAV exists and decodes
+  * loop length: samples == bars * beats_per_bar * 60 / tempo * sr, exactly. Only WAV is accepted: MP3
+    cannot hold an exact sample count (encoder padding, decoder-dependent trimming), so an MP3 loop drifts
+  * loudness: integrated LUFS within -16 ± 1; never touching full scale (no sample at or above 0.999)
+  * nothing unreferenced: every file in clips/ is a clip's file, every file in midi/parts/ a clip's part,
+    every .mid directly in midi/ a clip's source (midi/alternates/ holds alternate feels and is exempt);
+    clips/stems/ and midi/stems/ must not exist
+  * fit: pipeline/arrange/fit.py over midi/parts/; any combination above TOLERANT fails the check
 
 usage: check_library.py [--root DIR]
 """
@@ -25,18 +26,19 @@ import argparse, json, os, sys
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "arrange"))
 from analyze import load_audio, integrated_loudness, peak_dbfs  # noqa: E402
 
 CANON = [("hebrew", "עברית"), ("israel", "ישראל"), ("values", "עולם ערכים"),
          ("culture", "תרבות"), ("memory", "זכרון הסטורי"), ("lifestyle", "אורח חיים")]
-CLIP_FIELDS = ["id", "title", "note", "file", "source", "credit"]
-STEM_FIELDS = ["id", "name", "file", "midi"]
-ASSET_FIELDS = ["id", "name", "color", "description", "clips"]
+CLIP_FIELDS = ["id", "title", "note", "file", "source", "part", "credit"]
+ASSET_FIELDS = ["id", "name", "instrument", "color", "description", "clips"]
 TARGET_LUFS, LUFS_TOL = -16.0, 1.0
 CLIP_LEVEL = 0.999
 
 
 def check_manifest(m, errors):
+    from parts import INSTRUMENTS
     for k in ("version", "tempo", "key", "bars", "beats_per_bar", "assets"):
         if k not in m:
             errors.append(f"manifest: missing top-level '{k}'")
@@ -60,22 +62,34 @@ def check_manifest(m, errors):
             errors.append(f"asset #{i+1}: id '{a.get('id')}' should be '{cid}'")
         if a.get("name") != cname:
             errors.append(f"asset #{i+1}: name '{a.get('name')}' should be '{cname}'")
+        inst = a.get("instrument")
+        want = INSTRUMENTS.get(cid, (None,))[0]
+        if not isinstance(inst, dict) or not inst.get("name") or inst.get("id") != want:
+            errors.append(f"asset {cid}: instrument must be {{\"id\": \"{want}\", \"name\": <Hebrew>}} (parts.py INSTRUMENTS), got {inst!r}")
         if not a.get("clips"):
             errors.append(f"asset {cid}: no clips")
 
 
 def check_clip(m, a, c, root, errors):
-    cid, path = c.get("id", "?"), c.get("file", "")
+    cid = c.get("id", "?")
     for k in CLIP_FIELDS:
         if k not in c:
             errors.append(f"clip {cid}: missing '{k}'")
+    for k in ("stems", "stems_gain"):
+        if k in c:
+            errors.append(f"clip {cid}: '{k}' belongs to the old model; a clip is one rendered part")
     if not cid.startswith(a.get("id", "") + "-"):
         errors.append(f"clip {cid}: id must start with '{a.get('id')}-'")
-    if os.path.splitext(os.path.basename(path))[0] != cid:
-        errors.append(f"clip {cid}: file '{path}' does not match id")
-    if os.path.splitext(path)[1].lower() != ".wav":
-        errors.append(f"clip {cid}: only WAV clips are allowed (exact loop length); got {path}")
-        return None
+    path, src, part = c.get("file", ""), c.get("source", ""), c.get("part", "")
+    if path != f"clips/{cid}.wav":
+        errors.append(f"clip {cid}: file must be clips/{cid}.wav (WAV only: exact loop length), got {path!r}")
+    inst = (a.get("instrument") or {}).get("id")
+    slug = os.path.splitext(os.path.basename(src))[0]
+    if part != f"midi/parts/{slug}--{inst}.mid":
+        errors.append(f"clip {cid}: part must be midi/parts/{slug}--{inst}.mid, got {part!r}")
+    for what, p in (("source", src), ("part", part)):
+        if not (p.endswith(".mid") and os.path.isfile(os.path.join(root, p))):
+            errors.append(f"clip {cid}: {what} not found: {p}")
     full = os.path.join(root, path)
     if not os.path.isfile(full):
         errors.append(f"clip {cid}: file not found: {path}")
@@ -100,99 +114,30 @@ def check_clip(m, a, c, root, errors):
     pk_db, _ = peak_dbfs(y)
     clipped = int(np.sum(np.abs(y) >= CLIP_LEVEL))
     if clipped:
-        problems.append(f"clipping: {clipped} sample(s) at or above {CLIP_LEVEL} FS")
+        problems.append(f"touches full scale: {clipped} sample(s) at or above {CLIP_LEVEL} FS")
     for p in problems:
         errors.append(f"clip {cid}: {p}")
-    return {"path": path, "sr": sr, "ch": y.shape[1], "n": n, "exp": exp, "delta": n - exp,
+    return {"path": path, "inst": inst, "sr": sr, "ch": y.shape[1], "n": n, "delta": n - exp,
             "lufs": lufs, "peak_db": pk_db, "ok": not problems}
 
 
-def check_stems(m, c, root, errors):
-    """Rows for each stem of clip c plus one for their trimmed sum; [] if the clip has no stems."""
-    cid = c.get("id", "?")
-    stems = c.get("stems")
-    if stems is None:
-        return []
-    if not isinstance(stems, list) or not stems:
-        errors.append(f"clip {cid}: 'stems' must be a non-empty list")
-        return []
-    gain = c.get("stems_gain")
-    if not isinstance(gain, (int, float)) or gain <= 0:
-        errors.append(f"clip {cid}: stems need a positive 'stems_gain' (the trim that brings their sum to {TARGET_LUFS} LUFS)")
-        gain = 1.0
-    bars = c.get("bars", m["bars"])
-    rows, total, total_sr, ids = [], None, None, set()
-    for s in stems:
-        sid = s.get("id", "?")
-        for k in STEM_FIELDS:
-            if k not in s:
-                errors.append(f"clip {cid} stem {sid}: missing '{k}'")
-        if sid in ids:
-            errors.append(f"clip {cid}: duplicate stem id '{sid}'")
-        ids.add(sid)
-        midi = s.get("midi", "")
-        if midi and not os.path.isfile(os.path.join(root, midi)):
-            errors.append(f"clip {cid} stem {sid}: midi not found: {midi}")
-        path = s.get("file", "")
-        if os.path.splitext(path)[1].lower() != ".wav":
-            errors.append(f"clip {cid} stem {sid}: only WAV stems are allowed; got {path}")
-            continue
-        full = os.path.join(root, path)
-        if not os.path.isfile(full):
-            errors.append(f"clip {cid} stem {sid}: file not found: {path}")
-            continue
-        try:
-            y, sr = load_audio(full)
-        except Exception as e:
-            errors.append(f"clip {cid} stem {sid}: cannot decode {path}: {e}")
-            continue
-        n, exp = len(y), int(round(bars * m["beats_per_bar"] * 60.0 / m["tempo"] * sr))
-        problems = []
-        if n != exp:
-            problems.append(f"length {n} samples, expected exactly {exp} ({bars} bars @ {m['tempo']} BPM, {sr} Hz), Δ {n-exp:+d}")
-        if total_sr not in (None, sr):
-            problems.append(f"sample rate {sr} differs from the other stems ({total_sr})")
-        for p in problems:
-            errors.append(f"clip {cid} stem {sid}: {p}")
-        pk_db, _ = peak_dbfs(y)
-        rows.append({"path": path, "sr": sr, "ch": y.shape[1], "n": n, "exp": exp, "delta": n - exp,
-                     "lufs": integrated_loudness(y, sr), "peak_db": pk_db, "ok": not problems})
-        if not problems:
-            mono = y.mean(axis=1, keepdims=True) if y.shape[1] > 1 else y
-            total = mono if total is None else total + mono
-            total_sr = sr
-    if total is not None and len(rows) == len(stems):
-        mix = total * gain
-        lufs = integrated_loudness(mix, total_sr)
-        pk_db, _ = peak_dbfs(mix)
-        problems = []
-        if np.isnan(lufs) or abs(lufs - TARGET_LUFS) > LUFS_TOL:
-            problems.append(f"stems summed at stems_gain {gain:g} are {lufs:.2f} LUFS, outside {TARGET_LUFS} ± {LUFS_TOL}")
-        clipped = int(np.sum(np.abs(mix) >= CLIP_LEVEL))
-        if clipped:
-            problems.append(f"stems summed at stems_gain {gain:g} clip: {clipped} sample(s) at or above {CLIP_LEVEL} FS")
-        for p in problems:
-            errors.append(f"clip {cid}: {p}")
-        rows.append({"path": f"  = {len(stems)} stems x {gain:g}", "sr": total_sr, "ch": 1, "n": len(mix), "exp": len(mix),
-                     "delta": 0, "lufs": lufs, "peak_db": pk_db, "ok": not problems})
-    return rows
-
-
-def check_stray_midi(m, root, errors):
-    """Every .mid directly in midi/ and midi/stems/ must be referenced by the manifest."""
-    used = set()
-    for a in m["assets"]:
-        for c in a.get("clips", []):
-            used.add(c.get("source", ""))
-            used.update(s.get("midi", "") for s in c.get("stems") or [])
-    for folder in ("midi", "midi/stems"):
+def check_files(m, root, errors):
+    """Nothing unreferenced, and nothing of the old stem model."""
+    clips = [c for a in m["assets"] for c in a.get("clips", [])]
+    for folder in ("clips/stems", "midi/stems"):
+        if os.path.exists(os.path.join(root, folder)):
+            errors.append(f"{folder}/ exists: stems belong to the old model; remove it")
+    for folder, key, ext in (("clips", "file", None), ("midi/parts", "part", None), ("midi", "source", ".mid")):
+        used = {c.get(key, "") for c in clips}
         full = os.path.join(root, folder)
         if not os.path.isdir(full):
             continue
         for name in sorted(os.listdir(full)):
             path = f"{folder}/{name}"
-            if name.lower().endswith(".mid") and os.path.isfile(os.path.join(full, name)) and path not in used:
-                errors.append(f"stray MIDI: {path} is not a clip's source or a stem's midi in the manifest (move it to midi/alternates/ or register it)")
+            if name.startswith(".") or not os.path.isfile(os.path.join(full, name)) or (ext and not name.lower().endswith(ext)):
+                continue
+            if path not in used:
+                errors.append(f"unreferenced: {path} is no clip's {key} (move alternate MIDI to midi/alternates/, or register it)")
 
 
 def main():
@@ -209,27 +154,33 @@ def main():
         print("\n".join(errors)); sys.exit(1)
 
     print(f"library v{m['version']}: tempo {m['tempo']} BPM, key {m['key']}, {m['bars']} bars, {m['beats_per_bar']}/4")
-    W = 50
-    print(f"{'clip / stem':{W}s} {'sr':>6s} {'ch':>2s} {'samples':>8s} {'Δ':>4s} {'LUFS':>7s} {'peak':>7s}  status")
-    rows, stem_rows = [], 0
+    W = 24
+    print(f"{'clip':{W}s} {'instrument':10s} {'sr':>6s} {'ch':>2s} {'samples':>8s} {'Δ':>4s} {'LUFS':>7s} {'peak':>7s}  status")
+    rows = []
     for asset in m["assets"]:
         for c in asset.get("clips", []):
             r = check_clip(m, asset, c, root, errors)
             if r:
                 rows.append(r)
-                print(f"{r['path']:{W}s} {r['sr']:6d} {r['ch']:2d} {r['n']:8d} {r['delta']:+4d} "
+                print(f"{r['path']:{W}s} {r['inst']:10s} {r['sr']:6d} {r['ch']:2d} {r['n']:8d} {r['delta']:+4d} "
                       f"{r['lufs']:7.2f} {r['peak_db']:7.2f}  {'ok' if r['ok'] else 'FAIL'}")
-            for s in check_stems(m, c, root, errors):
-                stem_rows += not s["path"].startswith("  =")
-                print(f"  {s['path']:{W-2}s} {s['sr']:6d} {s['ch']:2d} {s['n']:8d} {s['delta']:+4d} "
-                      f"{s['lufs']:7.2f} {s['peak_db']:7.2f}  {'ok' if s['ok'] else 'FAIL'}")
-    check_stray_midi(m, root, errors)
+    check_files(m, root, errors)
+    try:
+        import fit
+        f = fit.evaluate(root)
+        print(f"\nfit: {f['n']} combinations, {f['strict'] * 100:.1f}% within STRICT {fit.STRICT}, "
+              f"{f['tolerant'] * 100:.1f}% within TOLERANT {fit.TOLERANT}, worst {f['worst'][0]:.3f}")
+        if f["over"]:
+            s, (x, y), _ = f["worst"]
+            errors.append(f"fit: {f['over']} combination(s) of parts above TOLERANT {fit.TOLERANT}; worst {s:.3f} ({x} + {y}). Run pipeline/arrange/fit.py")
+    except Exception as e:
+        errors.append(f"fit: cannot evaluate midi/parts/: {e}")
     if errors:
         print()
         print("\n".join(errors))
         print(f"\n{len(errors)} problem(s)")
         sys.exit(1)
-    print(f"\ngreen: {len(rows)} clip(s), {stem_rows} stem(s)")
+    print(f"\ngreen: {len(rows)} clip(s), one part each")
 
 
 if __name__ == "__main__":

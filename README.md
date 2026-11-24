@@ -30,55 +30,37 @@ index.html      mixer UI
 app.js          manifest loading, Web Audio scheduling, faders, persistence
 profile.js      SVG radar profile (shared later with the facilitator page)
 styles.css      RTL, phone-first layout
-manifest.json   shared tempo / key / bars + six assets + their clips
-clips/          prepared loops: WAV, mono, 44.1 kHz, 16-bit, exact whole-bar length.
+manifest.json   shared tempo / key / bars + six assets, each with its instrument and clips
+clips/          rendered parts, one per clip: WAV, mono, 44.1 kHz, 16-bit, exact whole-bar length.
                 WAV, not MP3, on purpose: MP3 cannot hold an exact loop length
                 (encoder padding, decoder trimming) and the loops would drift apart.
-midi/           the MIDI behind every MIDI-rendered clip (source of truth, committed)
-pipeline/       Python tools that prepare clips (Phase 2)
+midi/           song MIDI (source of truth, committed); midi/parts/ the instrument part of each clip
+pipeline/       Python tools: parts, renders and the library check
 ```
 
-## MIDI clips
+## Clips: one instrument part each
 
-The current six clips are rendered from MIDI, not cut from recordings. For them
-`midi/` is the source of truth and `clips/` is the build product:
+Each column plays one instrument (עברית clarinet, ישראל drums, עולם ערכים bass, תרבות guitar,
+זכרון הסטורי violin, אורח חיים piano), and each of its clips is that instrument's part of a song.
+MIDI is the source of truth and `clips/` is the build product:
 
-- `midi/<name>.mid` is the thing you edit: one file per clip, separate tracks for
-  melody, bass, guitar or pad, and drums, written in the library key. Change it in
-  a DAW, then re-render. Never edit a rendered WAV by hand.
-- `clips/<asset>-NN.wav` is what `pipeline/render_midi.py` makes from it, through
-  `library.py --midi`: an exact whole-bar loop at the manifest tempo, −16 LUFS,
-  committed like any other clip.
-- `manifest.json` points `source` at the MIDI (for example
-  `midi/israel-hatikva-full.mid`) and carries `credit: "עיבוד MIDI"`.
+- `midi/<slug>.mid` is the song (the clip's `source`): melody, bass, harmony and drums tracks
+  in the library key, written from `pipeline/arrange/manual.py` by `convert.py`, or by hand.
+- `midi/parts/<slug>--<instrument>.mid` is the clip's `part`: the track for the column's
+  instrument, re-voiced onto the shared progression by `pipeline/arrange/parts.py`.
+- `clips/<clip id>.wav` is the part rendered by `pipeline/arrange/rerender.py`: an exact
+  whole-bar loop at the manifest tempo, −16 LUFS. Never edit a rendered WAV or a part by hand.
 
-Re-render one clip after editing its MIDI (the clip keeps its id and picker position):
+After editing a song or the pipeline, render again and check:
 
 ```sh
-python pipeline/library.py replace israel-02 --midi midi/israel-hatikva-full.mid
-python pipeline/check_library.py
+python pipeline/arrange/rerender.py          # or with clip ids
+python pipeline/check_library.py             # includes pipeline/arrange/fit.py
 ```
 
-Add a new MIDI clip:
-
-```sh
-python pipeline/library.py add --midi midi/<name>.mid --asset <id> --title "<title>" \
-    --note "מעובד מ-MIDI, 8 תיבות ב-100 BPM, רה מינור" --credit "עיבוד MIDI"
-```
-
-Stems: a MIDI clip can also list per-instrument loops (`"stems"` in the manifest,
-WAVs under `clips/stems/`, MIDI under `midi/stems/`). The player then plays the stems
-instead of the full file, all started together, and each chip under the channel
-switches one of them on or off without touching the others. `render_midi.py
-midi/<name>.mid sources/stems --stems` writes one `.mid` and `.wav` per track; the
-manifest's `stems_gain` (computed by the pipeline, checked by `check_library.py`)
-trims them so that all stems together are as loud as a plain clip.
-
-`render_midi.py` reads tempo, bars and beats per bar from `manifest.json`, so after a
-tempo or loop-length change re-render every MIDI clip with `replace --midi` and the
-library stays in sync. The renderer does not shift pitch: after a key change,
-transpose the MIDI files in the DAW first (or render once by hand with
-`render_midi.py --transpose N` to audition).
+A new song: put the recording under `sources/`, add it to `songs.py` and `manual.py`, then
+`python pipeline/arrange/convert.py <slug> --apply`. The renderer does not shift pitch or
+tempo: songs are written in the library key and grid.
 
 ## Deploy
 
