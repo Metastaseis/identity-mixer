@@ -6,9 +6,9 @@ Identity Mixer is a phone-first, Hebrew (RTL) static web app for מכינה work
 
 ## Design invariants
 
-1. **One tempo, one key, fixed in `manifest.json`.** The whole library shares a single tempo and a single key. All synchronisation and harmonisation work happens in the preparation pipeline, never at runtime. The player does exactly one audio job: start all loops together and keep them running.
+1. **One tempo, one key, fixed in `manifest.json`.** The whole library shares a single tempo and a single key. All synchronisation and harmonisation work happens in the preparation pipeline, never at runtime. The player's audio jobs: start all loops together on one shared grid, swap a channel in place on that grid when a song changes, and keep them running.
 2. **Every clip is an exact whole-bar loop.** Default length is 8 bars at the shared tempo, stored as WAV (mono, 44.1 kHz, 16-bit) so the sample count is exact. MP3 cannot hold an exact loop length: encoders pad the stream and decoders trim differently, so an MP3 loop drifts against the others. Every clip is loudness-matched so faders mean the same thing across assets. The player loops each source over its grid length (`loopEnd`), never over the decoded buffer length.
-3. **No build step, no framework.** The app is `index.html` + `app.js` + `styles.css` + `manifest.json` + `clips/`. It deploys as plain static files to any host.
+3. **No build step, no framework.** The app is `index.html` + `app.js` + `profile.js` + `styles.css` + `manifest.json` + `clips/`. It deploys as plain static files to any host.
 4. **Hebrew, RTL, phone-first, iOS Safari compatible.** The `AudioContext` is created and resumed only inside the play tap, because iOS refuses audio that is not user-initiated.
 5. **One copy of every file, versioned with Git.** No `*_v2` files, no duplicate folders, no "backup" copies. History lives in Git.
 
@@ -22,15 +22,18 @@ styles.css            RTL, phone-first layout
 manifest.json         Shared tempo/key/bars + assets + clips
 clips/                Prepared loops (WAV mono 44.1 kHz 16-bit, committed)
 midi/                 MIDI behind every MIDI-rendered clip: the source of truth for those clips (committed)
-sources/              Original recordings (git-ignored, never committed)
+sources/              Original recordings and SoundFonts (git-ignored, never committed)
 pipeline/
   prepare_clip.py     Source recording -> prepared loop + manifest entry
+  library.py          list / add / replace / remove clips; every change bumps the manifest version
   render_midi.py      .mid -> exact loop at the manifest tempo; library.py --midi uses it
+  sf2.py              SoundFont sample player; render_midi.py plays sampled instruments through it
   analyze.py          Report BPM / key / downbeat of a source file
-  check_library.py    Verify every manifest clip exists, loops exactly, matches tempo/key/loudness
+  check_library.py    Verify every manifest clip and stem exists, loops exactly, matches tempo and loudness
   requirements.txt    Python dependencies
-facilitator/
-  index.html          Room view: overlay of participant profiles (later phase)
+  README.md           The pipeline tools and how to run them
+facilitator/          Planned (Phase 4), not yet present
+  index.html          Room view: overlay of participant profiles
 README.md             How to run, how to add a clip, how to deploy
 CLAUDE.md             Project rules for every working session
 ARCHITECTURE.md       This document
@@ -46,6 +49,7 @@ Top level:
 | `tempo` | number | Shared BPM for the whole library                     |
 | `key`   | string | Shared key, e.g. `"D minor"`                         |
 | `bars`  | number | Default loop length in bars (clips may override)     |
+| `beats_per_bar` | number | Must be 4; the app and `check_library.py` refuse anything else. A loop lasts bars × beats_per_bar × 60 / tempo seconds |
 | `assets`| array  | Exactly six entries, in the canonical order          |
 
 Each asset:
@@ -66,12 +70,12 @@ Each clip:
 | `title`  | string | Hebrew title shown in the clip picker                     |
 | `note`   | string | One short Hebrew line: what this clip is and why it fits  |
 | `file`   | string | Path relative to repo root, e.g. `clips/hebrew-01.wav`    |
-| `source` | string | Original filename under `sources/` (for traceability)     |
+| `source` | string | Where the audio came from: the MIDI path (`midi/<name>.mid`) for a rendered clip, as every current clip is, or the recording's filename under `sources/` for a prepared one |
 | `credit` | string | Performer / origin / licence note                         |
 | `bars`   | number | Optional. Loop length override for this clip              |
 | `tempo_ratio` | number | Optional. Source was stretched to tempo × this (0.5, 1.5, 2) |
-| `stems`  | array  | Optional. `[{ id, name, file, midi }]`: per-instrument loops of the same length under `clips/stems/`, their MIDI under `midi/stems/`. The player then plays the stems instead of `file`, all started at the shared time, each behind its own on/off gain that feeds the channel fader. `name` is the Hebrew chip label |
-| `stems_gain` | number | Required with `stems`. Linear trim applied to every stem so that all stems together sit at −16 LUFS like a plain clip (each stem is normalised on its own, so their sum is louder). Computed by the pipeline, verified by `check_library.py` |
+| `stems`  | array  | Optional. `[{ id, name, file, midi }]`: per-instrument loops of the same length under `clips/stems/`, their MIDI under `midi/stems/`. The player then plays the stems instead of `file`, all started at the shared time, each behind its own on/off gain that feeds the channel fader. Every stem starts off, when the app opens and after every song change. `file` then plays only if a stem fails to load. `name` is the Hebrew chip label |
+| `stems_gain` | number | Required with `stems`. Linear trim applied to every stem so that all stems together sit at −16 LUFS like a plain clip. Computed by the pipeline. Stems are not each at −16 LUFS: in the first six clips they are (the darbuka sits at −21); in the later fifteen the melody is at −14 and the accompaniment at −20. `check_library.py` enforces the sum only: the stems summed at `stems_gain` reach −16 ± 1 LUFS without touching full scale |
 
 Example with one asset:
 
@@ -81,6 +85,7 @@ Example with one asset:
   "tempo": 92,
   "key": "D minor",
   "bars": 8,
+  "beats_per_bar": 4,
   "assets": [
     {
       "id": "hebrew",
@@ -110,25 +115,31 @@ Asset ids and canonical order: `hebrew`, `israel`, `values`, `culture`, `memory`
 
 ```
 prepare_clip.py <source> --asset <id> --title <t> [--bpm N] [--key K] [--start seconds] [--bars N] [--tempo-ratio R]
+                [--note TEXT] [--credit TEXT] [--fade MS] [--root DIR]
+prepare_clip.py --midi <file.mid> --asset <id> --title <t> [--bars N] [--note TEXT] [--credit TEXT] [--fade MS] [--root DIR]
 ```
 
-- `<source>` is a file under `sources/`.
+- `<source>` is a file under `sources/`. Omit it with `--midi`.
+- `--midi` renders a `.mid` with `render_midi.py` instead: no detection, no stretch, no shift. The render becomes the master and then goes through steps 5–8. `--bpm`, `--key`, `--start` and `--tempo-ratio` don't apply.
 - `--asset` must be one of the six ids in the manifest.
 - `--title` is the Hebrew title written into the manifest.
 - `--bpm` and `--key` override detection when analysis is wrong or ambiguous.
 - `--start` is a seconds offset that overrides the detected downbeat.
 - `--bars` overrides the manifest default loop length.
 - `--tempo-ratio` (0.5, 1, 1.5, 2) stretches the source to library tempo × R and cuts bars × R source bars, so the loop still equals the library loop exactly. For sources far from the library tempo. Recorded as `tempo_ratio` in the clip entry.
+- `--note` and `--credit` fill those clip fields.
+- `--fade` sets the edge fade in ms: 5 by default for a recording, 0 for `--midi`, whose render already wraps its tail across the loop seam.
+- `--root` points at another repo root.
 
 ### Steps
 
 1. **Load** the source and resample to 44.1 kHz, mixed to mono for analysis, stereo preserved through the stretch.
 2. **Detect** BPM, key and first downbeat, or take them from `--bpm`, `--key`, `--start`. Print what was detected and what was used.
-3. **Cut** exactly `bars` bars from the downbeat at the *source* tempo. Length in samples is `bars * 4 * (60 / source_bpm) * sr`, rounded to an integer.
-4. **Stretch and shift** with `pyrubberband`: time-stretch by `manifest.tempo / source_bpm`, and pitch-shift to the manifest key. The shift is relative-major-aware (a source in F major targeting D minor shifts by 0 semitones) and always uses the smallest signed semitone distance, in the range −6 to +5.
-5. **Normalise** to −16 LUFS integrated with `pyloudnorm`, apply 5 ms linear fades at both ends, then verify the sample count equals `bars * 4 * (60 / manifest.tempo) * sr` exactly. Trim or pad by at most a few samples; abort if the difference is larger.
-6. **Export** `clips/<asset>-NN.wav` as mono 44.1 kHz 16-bit WAV with TPDF dither, exact sample count, plus a stereo 24-bit master in `sources/prepared/` (git-ignored), where `NN` is the next free two-digit index for that asset.
-7. **Append** the clip entry to `manifest.json` under the matching asset, preserving existing formatting and key order.
+3. **Cut** exactly `bars × R` bars from the downbeat at the *source* tempo (R is `--tempo-ratio`, default 1). Length in samples is `bars * R * 4 * (60 / source_bpm) * sr`, rounded to an integer.
+4. **Stretch and shift** with `pyrubberband`: one R3 pass that time-stretches to `manifest.tempo × R` and pitch-shifts to the manifest key. The shift is relative-major-aware (a source in F major targeting D minor shifts by 0 semitones) and always uses the smallest signed semitone distance, in the range −6 to +5.
+5. **Fix the length** to exactly `bars * 4 * (60 / manifest.tempo) * sr` samples. Trim or pad by at most 10 ms; abort if the difference is larger. Write the stereo 24-bit master to `sources/prepared/` (git-ignored). Then mix to mono, normalise to −16 LUFS integrated with `pyloudnorm` (limiter ceiling 0.99 FS) and apply linear fades at both ends (`--fade`).
+6. **Export** `clips/<asset>-NN.wav` as mono 44.1 kHz 16-bit WAV with TPDF dither and the exact sample count, where `NN` is the next free two-digit index for that asset.
+7. **Append** the clip entry to `manifest.json` under the matching asset, preserving existing formatting and key order, and bump `version`.
 8. **Print** a summary: source, detected vs used BPM/key/downbeat, semitone shift, stretch ratio, loudness before/after, final length in samples and bars, output path.
 
 `check_library.py` re-derives step 5 for every clip in the manifest, requires WAV and an exact sample count, and exits non-zero on any mismatch. `analyze.py` runs step 2 only and prints the result, for auditioning sources before committing to a cut.
@@ -136,15 +147,15 @@ prepare_clip.py <source> --asset <id> --title <t> [--bpm N] [--key K] [--start s
 ### Dependencies
 
 System (Homebrew): `ffmpeg`, `rubberband`.
-Python (`pipeline/requirements.txt`): `librosa`, `soundfile`, `pyrubberband`, `pyloudnorm`, `numpy`. (`pydub` was dropped: it needs the `audioop` module that Python 3.13 removed. `ffmpeg` is used only by librosa as a decoder for source files.)
+Python (`pipeline/requirements.txt`): `librosa`, `soundfile`, `pyrubberband`, `pyloudnorm`, `numpy`, `pretty_midi` (for `render_midi.py`). (`pydub` was dropped: it needs the `audioop` module that Python 3.13 removed. `ffmpeg` is used only by librosa as a decoder for source files.)
 
 ## Phases
 
-1. **Bootstrap.** Build the app from the prototype: six channels, faders, play/stop, profile shape. Test on a real phone over the local network.
-2. **Pipeline.** Implement `prepare_clip.py`, `analyze.py`, `check_library.py`. Prepare one real clip per asset. `check_library.py` is green.
-3. **Deploy.** Publish to GitHub Pages. Generate a QR code for the room.
-4. **Sharing.** Encode the profile in the URL (`?p=60,40,90,20,70,50`). Build `facilitator/index.html` to overlay many profiles in one view.
-5. **Depth and polish.** Several clips per asset, PWA manifest and offline cache, visual and copy polish.
+1. **Bootstrap.** Build the app from the prototype: six channels, faders, play/stop, profile shape. Test on a real phone over the local network. Done.
+2. **Pipeline.** Implement `prepare_clip.py`, `analyze.py`, `check_library.py`. Prepare one real clip per asset. `check_library.py` is green. Done.
+3. **Deploy.** Publish to GitHub Pages. Generate a QR code for the room. Done.
+4. **Sharing.** Encode the profile in the URL (`?p=60,40,90,20,70,50`). Build `facilitator/index.html` to overlay many profiles in one view. Not started.
+5. **Depth and polish.** Several clips per asset: done. PWA manifest and offline cache, visual and copy polish: not started.
 
 ## Working rhythm
 
