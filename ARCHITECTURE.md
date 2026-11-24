@@ -22,6 +22,7 @@ styles.css            RTL, phone-first layout
 manifest.json         Shared tempo/key/bars + assets + clips
 clips/                Prepared loops (WAV mono 44.1 kHz 16-bit, committed)
 midi/                 MIDI behind every MIDI-rendered clip: the source of truth for those clips (committed)
+  alternates/         Alternate feels, not in the library
 sources/              Original recordings and SoundFonts (git-ignored, never committed)
 pipeline/
   prepare_clip.py     Source recording -> prepared loop + manifest entry
