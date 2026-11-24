@@ -38,8 +38,9 @@ async function loadManifest() {
 const barLength = () => MANIFEST.beats_per_bar * 60 / MANIFEST.tempo;
 const loopLength = clip => (clip.bars ?? MANIFEST.bars) * barLength();
 const hasStems = clip => Array.isArray(clip.stems) && clip.stems.length > 0;
-// Every file a clip needs decoded: the full clip always, plus its stems when it has them.
-const clipFiles = clip => hasStems(clip) ? [clip.file, ...clip.stems.map(s => s.file)] : [clip.file];
+// The files a clip plays: its stems when it has them, else the full clip. A clip's full-mix
+// file is only a fallback for stems that fail to load; it is fetched only then.
+const clipFiles = clip => hasStems(clip) ? clip.stems.map(s => s.file) : [clip.file];
 
 // ---------- state ----------
 // Saved fader levels always survive. Saved clip choices survive only while the
@@ -120,10 +121,15 @@ async function playableBuffer(file) {    // a buffer this context refuses (decod
 function preloadChannel(i) {             // background: fetch + decode the selected clip's files, show a loading state
   const clip = clipOf(i);
   setLoading(i, true);
-  const p = Promise.allSettled(clipFiles(clip).map(loadBuffer)).then(results => {
+  const p = Promise.allSettled(clipFiles(clip).map(loadBuffer)).then(async results => {
     const failed = results.filter(r => r.status === "rejected");
     failed.forEach(r => console.error("[load]", r.reason));
-    if (clipOf(i) === clip) setLoading(i, failed.length > 0, failed.length > 0);
+    let broken = failed.length > 0;
+    if (broken && hasStems(clip)) {     // a stem failed: fetch the full mix it falls back to
+      try { await loadBuffer(clip.file); broken = false; }
+      catch (e) { console.error("[load] fallback", e); }
+    }
+    if (clipOf(i) === clip) setLoading(i, broken, broken);   // "failed" only when nothing of the clip can play
     return results;
   });
   ready[i] = p;
@@ -148,7 +154,10 @@ async function makeChannel(i) {
     try { sources = await Promise.all(clip.stems.map(s => makeSource(i, { id: s.id, file: s.file, base }, L, g))); }
     catch (e) { console.error(`[stems] ${clip.id}: ${e.message}; playing the full clip instead`); }
   }
-  if (!sources) sources = [await makeSource(i, { id: null, file: clip.file, base: 1 }, L, g)];
+  if (!sources) {                         // no stems, or a stem failed: the full mix (fetched and decoded here if needed)
+    try { sources = [await makeSource(i, { id: null, file: clip.file, base: 1 }, L, g)]; }
+    catch (e) { if (clipOf(i) === clip) setLoading(i, true, true); throw e; }
+  }
   return { clip, L, g, sources };
 }
 async function startAll() {
