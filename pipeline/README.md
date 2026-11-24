@@ -65,24 +65,27 @@ A melody track that carries pitch-bend or expression (CC11) is rendered as a
 sung line: notes that touch are tied, the pitch follows note + bend (bend range
 from RPN 0, else 2 semitones) and the level follows CC11.
 
-Sound. `render_midi.py` plays sampled instruments when it finds a SoundFont:
-the file named by `$MIXER_SOUNDFONT`, else the first `.sf2` (by name) in
-`sources/soundfonts/` that is really on disk. `sf2.py` is the player (numpy
+Sound. `render_midi.py` plays sampled instruments from the pinned SoundFont:
+the file named by `$MIXER_SOUNDFONT`, else `sources/soundfonts/Merlin.sf2`.
+`sf2.py` is the player (numpy
 and scipy, nothing else to install); each track uses the instrument of its General MIDI
 program (a track named melody always gets a held instrument, the flute), the
 tracks are balanced with the melody in front, and a short room reverb is added.
-`sources/` is not in Git, so a fresh clone has no SoundFont and falls back to
-the built-in synth; the render log says which one played. After changing the
-SoundFont or the renderer, `pipeline/arrange/rerender.py` renders every MIDI
-clip and stem again. Until `rerender.py` renders them from the committed MIDI,
-a fresh clone can re-render every clip except the 15 songs of `arrange/songs.py`,
-which need the local caches.
+After a change to the renderer, `pipeline/arrange/rerender.py` renders every
+MIDI clip and stem again from committed files only: the 15 songs of
+`arrange/songs.py` from their `midi/<slug>.mid` through `finish.py`, every other
+MIDI clip from the MIDI its manifest entry names. A fresh clone rebuilds the
+whole library this way, given Merlin.sf2 (`sources/` is not in Git, so put it
+there or point `MIXER_SOUNDFONT` at it). Run `check_library.py` afterwards.
 
 SoundFont. Library renders use **Merlin.sf2** (11,583,258 bytes, sha256
 `a3ebced39a1264849616f160bd135d77efd19ddb2be129aa9b9d964ba391f979`), bundled with
 the SCAMP Python package 0.9.0 (https://pypi.org/project/scamp/0.9.0/, source
-https://sr.ht/~marcevanstein/scamp/). Pin it with `MIXER_SOUNDFONT`; any other
-`.sf2` that sorts before it in `sources/soundfonts/` would replace it.
+https://sr.ht/~marcevanstein/scamp/). It is pinned by name and checksum in
+`sf2.py` (`PINNED`): no other `.sf2` is ever used, and a render stops with an
+error if the file is missing or its sha256 differs. `MIXER_SOUNDFONT` may point
+at the same file elsewhere (it is checked the same way). `MIXER_SOUNDFONT=builtin`
+is the explicit opt-in to the built-in synth, which no library clip uses.
 
 Demucs. `arrange/sep.py` separates a recording into vocals, bass, other and drums
 in its own venv (`torch` 2.15.0, `demucs` 4.1.0), by default

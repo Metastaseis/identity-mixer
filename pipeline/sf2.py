@@ -11,10 +11,12 @@ Stereo pairs are summed to mono. Modulators, LFOs, the modulation envelope and e
     y = sf.voice(bank, program, key, velocity, n_on, pitch=curve)    # pitch (MIDI numbers) per output sample
     python pipeline/sf2.py <file.sf2>                                # list the presets
 
-find() returns the soundfont to use: $MIXER_SOUNDFONT, else the first .sf2 in sources/soundfonts/ (by name)
-that is really on disk.
+find() returns the SoundFont to render with, pinned by name and checksum (PINNED): the file named by
+$MIXER_SOUNDFONT, else sources/soundfonts/Merlin.sf2. It never falls through to another .sf2. A missing file
+or a different checksum stops with SoundFontError. MIXER_SOUNDFONT=builtin is the one way to render with
+render_midi.py's built-in synth instead (find() then returns None).
 """
-import glob, os, struct, sys
+import hashlib, os, struct, sys
 
 import numpy as np
 from scipy.signal import butter, sosfilt
@@ -30,16 +32,51 @@ DEFAULT = {G_FILTER: 13500, G_ATTACK: -12000, G_HOLD: -12000, G_DECAY: -12000, G
 ADDITIVE = (G_FILTER, G_ATTACK, G_HOLD, G_DECAY, G_SUSTAIN, G_RELEASE, G_DELAY, G_ATTEN, G_COARSE, G_FINE, G_SCALE)   # preset level adds to these
 MAX_RELEASE = 1.0      # s: longest tail after a note ends
 
+# The SoundFont every library render uses: Merlin.sf2 as bundled with the SCAMP Python package 0.9.0
+# (see pipeline/README.md). Changing it changes every clip, so it is pinned by name and checksum.
+PINNED = ("Merlin.sf2", "a3ebced39a1264849616f160bd135d77efd19ddb2be129aa9b9d964ba391f979")
+BUILTIN = "builtin"          # MIXER_SOUNDFONT=builtin: render with the built-in synth, on purpose
+_CHECKED = {}                # real path -> sha256, so each file is hashed once per process
+FIX = (f"Put {PINNED[0]} (from the SCAMP Python package 0.9.0, see pipeline/README.md) in sources/soundfonts/, "
+       f"or set MIXER_SOUNDFONT to its path. MIXER_SOUNDFONT={BUILTIN} renders with the built-in synth instead.")
+
+
+class SoundFontError(RuntimeError):
+    pass
+
+
+def on_disk(path):
+    """A real local file: not missing, not empty, not a cloud placeholder (reading one would stall)."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return False
+    return st.st_size > 0 and st.st_blocks > 0
+
+
+def sha256(path):
+    real = os.path.realpath(path)
+    if real not in _CHECKED:
+        h = hashlib.sha256()
+        with open(real, "rb") as f:
+            for block in iter(lambda: f.read(1 << 20), b""):
+                h.update(block)
+        _CHECKED[real] = h.hexdigest()
+    return _CHECKED[real]
+
 
 def find(root=ROOT):
+    """Path of the pinned SoundFont, or None when MIXER_SOUNDFONT=builtin. Raises SoundFontError otherwise."""
     p = os.environ.get("MIXER_SOUNDFONT")
-    if p and os.path.isfile(p):
-        return p
-    for hit in sorted(glob.glob(os.path.join(root, "sources", "soundfonts", "*.sf2"))):
-        st = os.stat(hit)
-        if st.st_size > 0 and st.st_blocks > 0:          # skip cloud placeholders: reading one would stall
-            return hit
-    return None
+    if p == BUILTIN:
+        return None
+    path, how = (p, "$MIXER_SOUNDFONT") if p else (os.path.join(root, "sources", "soundfonts", PINNED[0]), "the pinned SoundFont")
+    if not on_disk(path):
+        raise SoundFontError(f"no SoundFont: {how} {path} is not on disk. {FIX}")
+    got = sha256(path)
+    if got != PINNED[1]:
+        raise SoundFontError(f"wrong SoundFont: {path} has sha256 {got}, the pinned {PINNED[0]} has {PINNED[1]}. {FIX}")
+    return path
 
 
 def secs(timecents):
@@ -182,8 +219,11 @@ class SoundFont:
 
 
 if __name__ == "__main__":
-    path = sys.argv[1] if len(sys.argv) > 1 else find()
+    try:
+        path = sys.argv[1] if len(sys.argv) > 1 else find()
+    except SoundFontError as e:
+        sys.exit(f"error: {e}")
     if not path:
-        sys.exit("no soundfont: pass a path, set MIXER_SOUNDFONT or put one in sources/soundfonts/")
+        sys.exit(f"MIXER_SOUNDFONT={BUILTIN}: no SoundFont to list (pass a path)")
     for bank, prog, name in SoundFont(path).presets():
         print(f"{bank:3d} {prog:3d}  {name}")

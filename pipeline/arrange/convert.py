@@ -3,11 +3,11 @@
 
 Run from anywhere with the project environment:
 
-  .venv/bin/python sources/transcribe/convert.py <slug> [<slug> ...]
-      transcribe only: writes sources/transcribe/out/<slug>.mid and prints the bars
-  .venv/bin/python sources/transcribe/convert.py <slug> --start 44.6
+  .venv/bin/python pipeline/arrange/convert.py <slug> [<slug> ...]
+      transcribe only: writes pipeline/arrange/out/<slug>.mid and prints the bars
+  .venv/bin/python pipeline/arrange/convert.py <slug> --start 44.6
       same, but the loop starts 44.6 s into the recording (remembered in picks.json)
-  .venv/bin/python sources/transcribe/convert.py <slug> --apply
+  .venv/bin/python pipeline/arrange/convert.py <slug> --apply
       also writes midi/<slug>.mid, renders the clip and one stem per track into
       clips/ and clips/stems/, and updates manifest.json (bumps its version)
   no slug = every song in songs.py.   --keep-audio keeps the separated audio.
@@ -30,8 +30,9 @@ Steps per song
                 harmony. The song's key is remembered in keys.json.
   6. finish.py  (--apply) library.py add/replace --midi, stems, stems_gain
 
-Only the small analysis caches stay on disk (sect/, sep/<slug>/*.npz). After
---apply run pipeline/check_library.py.
+Only the small analysis caches stay on disk (sect/, sep/<slug>/*.npz, git-ignored). After
+--apply run pipeline/check_library.py. To render the library again from the
+committed MIDI (no recordings, no caches), use rerender.py instead.
 
 Songs written by hand (manual.py; since 2026-11-19 all fifteen)
   A song with an entry in manual.py takes its melody, chords, and optionally its
@@ -49,13 +50,13 @@ Songs written by hand (manual.py; since 2026-11-19 all fifteen)
     convert.py <slug> --apply ; played.py <slug>   (does the stem sound the written notes?)
   Bar positions in notes.py count from 1: the beat of a note is (bar - 1) * beats per bar + beat - 1.
 
-Checks
+Checks (left in sources/transcribe/, not in Git; both need a sung-line song, and all fifteen are now hand-written)
   verify.py   (sung-line songs only) renders each melody on its own, measures the pitch of that audio
               again and compares it with the singer, moment by moment
   audit.py    checks the pitch track against the spectrum of the separated
               voice (octave slips, wrong notes); needs sep/<slug>/vocals.wav
-Helpers: score.py scores a MIDI melody against the sung voice (judge.py uses it); v1/ holds
-the first version of the fifteen arrangements.
+Helpers: score.py scores a MIDI melody against the sung voice (judge.py uses it); sources/transcribe/v1/
+holds the first version of the fifteen arrangements.
 """
 import argparse, json, os, subprocess, sys
 

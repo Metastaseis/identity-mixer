@@ -11,11 +11,12 @@ Tempo, bars and beats per bar default to manifest.json in the repo root
 be written in the library key already; --transpose shifts every pitched note
 by whole semitones if it is not.
 
-Sound: when a SoundFont is available (sf2.find(): $MIXER_SOUNDFONT, else an
-.sf2 in sources/soundfonts/) every track is played with the sampled instrument
-of its General MIDI program by pipeline/sf2.py, the tracks are balanced
-(melody in front), and a short room reverb is added. Without a SoundFont the
-built-in synth below is used: track names (or GM programs) pick a voice:
+Sound: every track is played with the sampled instrument of its General MIDI
+program by pipeline/sf2.py from the pinned SoundFont (sf2.find(): Merlin.sf2,
+checked by sha256, from $MIXER_SOUNDFONT or sources/soundfonts/), the tracks
+are balanced (melody in front), and a short room reverb is added. A missing or
+different SoundFont stops the render. Only with MIXER_SOUNDFONT=builtin is the
+built-in synth below used: track names (or GM programs) pick a voice:
 melody/lead/clarinet -> lead, bass/tuba -> pluck, guitar/accordion -> strum,
 pad -> pad, a drum track -> dum/tak.
 Note starts are re-timed from the MIDI tempo to the library tempo.
@@ -193,8 +194,12 @@ _FONT = {}
 
 
 def soundfont():
-    """The SoundFont player, or None when no .sf2 is available (then the built-in synth plays)."""
-    path = sf2.find(ROOT)
+    """The pinned SoundFont player, or None with MIXER_SOUNDFONT=builtin (then the built-in synth plays).
+    A missing or different SoundFont stops the process with sf2's message."""
+    try:
+        path = sf2.find(ROOT)
+    except sf2.SoundFontError as e:
+        sys.exit(f"error: {e}")
     if path not in _FONT:
         _FONT[path] = sf2.SoundFont(path) if path else None
     return _FONT[path]
@@ -319,7 +324,7 @@ def render(midi, out, bpm, bars, beats_per_bar, *, transpose=0, lufs=-16.0, subt
     sf.write(out, y, SR, subtype=subtype)
     info = {"samples": len(y), "lufs": float(meter.integrated_loudness(y)), "peak": pk, "midi_bpm": src_bpm}
     log(f"render        {midi}  ({src_bpm:g} BPM in the file -> {bpm:g} BPM)  sound: "
-        + (os.path.basename(font.path) if font is not None else "built-in synth (no SoundFont found)"))
+        + (os.path.basename(font.path) if font is not None else "built-in synth (MIXER_SOUNDFONT=builtin)"))
     log(f"              {out}: {len(y)} samples = {len(y)/SR:.3f} s ({bars} bars x {beats_per_bar} beats), "
         f"{info['lufs']:.1f} LUFS, peak {pk:.2f}")
     return y, info

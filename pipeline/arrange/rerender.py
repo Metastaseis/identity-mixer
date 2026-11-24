@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """rerender.py — render every MIDI clip of the library again (after a change to the renderer or its sound).
 
-The fifteen songs of songs.py are rebuilt from their recordings / manual.py through convert.py --apply.
-Every other MIDI clip is rendered again from the MIDI files the manifest already names: the clip from its
+Everything comes from committed files, so a fresh clone can run it (it needs only the pinned SoundFont,
+Merlin.sf2: see pipeline/README.md). The fifteen songs of songs.py are rendered from their committed
+midi/<slug>.mid by finish.py: clip, stems and stems_gain, no recordings or caches. (To change one of them,
+edit manual.py and run convert.py <slug> --apply instead.) Every other MIDI clip is rendered again from the MIDI files the manifest already names: the clip from its
 `source`, each stem from its own `midi`, and `stems_gain` is measured again. Then run pipeline/check_library.py.
 """
 import json, os, subprocess, sys
@@ -13,6 +15,12 @@ from songs import SONGS
 from prepare_clip import load_manifest, save_manifest
 from render_midi import render, manifest_defaults
 from analyze import limit_peaks
+import sf2
+
+try:
+    sf2.find(R)                     # stop before touching anything if the SoundFont is missing or different
+except sf2.SoundFontError as e:
+    sys.exit(f"error: {e}")
 
 py = f"{R}/.venv/bin/python"
 ours = {f"midi/{slug}.mid": slug for slug in SONGS}
@@ -22,7 +30,7 @@ for a in load_manifest(R)["assets"]:
         src = c.get("source", "")
         if not src.startswith("midi/") or (only and c["id"] not in only): continue
         if src in ours:
-            r = subprocess.run([py, f"{W}/convert.py", ours[src], "--apply"], capture_output=True, text=True, cwd=R)
+            r = subprocess.run([py, f"{W}/finish.py", ours[src]], capture_output=True, text=True, cwd=R)
             print(f"{c['id']:13s} {c['title']}: " + ("rebuilt" if r.returncode == 0 else "FAILED " + (r.stderr or r.stdout)[-300:]), flush=True)
             continue
         stems, gain_note = c.get("stems"), ""
