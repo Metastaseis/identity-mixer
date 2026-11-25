@@ -64,7 +64,7 @@
       "description": "מה מהעבר חי בך — סיפורים, ימי זיכרון, השם של סבתא.",
       "clips": [
         { "id": "memory-02", "title": "שמור וזכור", "note": "כינור, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/memory-02.wav", "source": "midi/memory-shamor-vezachor-squared.mid", "part": "midi/parts/memory-shamor-vezachor-squared--violin.mid", "credit": "עיבוד MIDI" },
-        { "id": "memory-03", "title": "Rivers of Babylon", "note": "כינור, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/memory-03.wav", "source": "midi/memory-rivers-of-babylon.mid", "part": "midi/parts/memory-rivers-of-babylon--violin.mid", "credit": "עיבוד MIDI" },
+        { "id": "memory-03", "title": "על נהרות בבל", "note": "כינור, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/memory-03.wav", "source": "midi/memory-rivers-of-babylon.mid", "part": "midi/parts/memory-rivers-of-babylon--violin.mid", "credit": "עיבוד MIDI" },
         { "id": "memory-04", "title": "חי", "note": "כינור, 8 תיבות ב-100 BPM, רה מינור", "file": "clips/memory-04.wav", "source": "midi/memory-chai.mid", "part": "midi/parts/memory-chai--violin.mid", "credit": "עיבוד MIDI" }
       ]
     },

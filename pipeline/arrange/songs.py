@@ -2,7 +2,7 @@
 SONGS = {
  "lifestyle-shabbat-baboker": ("lifestyle", "sources/אורח חיים/אריק איינשטיין - שבת בבוקר קליפ.mp3", "שבת בבוקר"),
  "lifestyle-leitzan-katan":   ("lifestyle", "sources/אורח חיים/ליצן קטן שלי - מתוך פורים שמח עם רינת ויויו.mp3", "ליצן קטן שלי"),
- "memory-rivers-of-babylon":  ("memory", "sources/זכרון הסטורי/Boney M . - Rivers Of Babylon (Lyrics).mp3", "Rivers of Babylon"),
+ "memory-rivers-of-babylon":  ("memory", "sources/זכרון הסטורי/Boney M . - Rivers Of Babylon (Lyrics).mp3", "על נהרות בבל"),
  "memory-chai":               ("memory", "sources/זכרון הסטורי/עפרה חזה - חי קליפ.mp3", "חי"),
  "israel-shalom-lach-eretz":  ("israel", "sources/ישראל/יהורם גאון - שלום לך ארץ נהדרת.mp3", "שלום לך ארץ נהדרת"),
  "israel-kirya-yefefiya":     ("israel", "sources/ישראל/קריה יפיפיה – פורת נוב (מארח את סיני תור).mp3", "קריה יפיפיה"),
