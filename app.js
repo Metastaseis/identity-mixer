@@ -1,18 +1,16 @@
 // Identity Mixer — player and UI. Driven entirely by manifest.json.
 // The player's only audio job: start every loop at one shared AudioContext time
 // and loop each one over exactly its bar-grid length. Sync and harmony are
-// solved in pipeline/, never here. A clip with stems plays its stems as parallel
-// sources started at that same shared time; a stem toggle only moves that stem's
-// gain, it never stops or restarts a source.
+// solved in pipeline/, never here. Each channel plays one instrument: one source,
+// the selected clip's file, behind the channel's fader.
 
-const LEVEL_DEFAULT = 0.6;
+const LEVEL_DEFAULT = 0;      // every fader starts at zero: the participant raises the instruments they want
 const MASTER_DEFAULT = 0.8;
 const START_LEAD = 0.15;      // seconds between the tap and the shared start time
 const SWAP_LEAD = 0.05;       // seconds between a picker tap and the swap
 const RAMP = 0.03;            // setTargetAtTime time constant for click-free fader moves
-const STEM_RAMP = 0.02;       // setTargetAtTime time constant for a stem on/off (20 ms)
 const DECODE_RATE = 44100;    // background decodes run in an OfflineAudioContext at the clip rate
-const STORAGE_KEY = "mixer-state";
+const STORAGE_KEY = "mixer-state-instruments";   // new with the one-instrument model: old saved levels (0.6) are not read
 const DEBUG = new URLSearchParams(location.search).get("debug") === "1";
 
 const status = document.getElementById("status");
@@ -37,20 +35,12 @@ async function loadManifest() {
 // Loop lengths come from the manifest grid, never from decoded buffer lengths.
 const barLength = () => MANIFEST.beats_per_bar * 60 / MANIFEST.tempo;
 const loopLength = clip => (clip.bars ?? MANIFEST.bars) * barLength();
-const hasStems = clip => Array.isArray(clip.stems) && clip.stems.length > 0;
-// The files a clip plays: its stems when it has them, else the full clip. A clip's full-mix
-// file is only a fallback for stems that fail to load; it is fetched only then.
-const clipFiles = clip => hasStems(clip) ? clip.stems.map(s => s.file) : [clip.file];
 
 // ---------- state ----------
 // Saved fader levels always survive. Saved clip choices survive only while the
 // manifest version is unchanged: a bump means clip order or defaults moved.
-// Stem toggles live in memory only: on entering the app, and whenever another
-// song is chosen from a column's menu, every stem of the clip is off and the
-// participant switches on the voices they want.
-const allStems = i => new Set((clipOf(i).stems || []).map(x => x.id));
 function loadState() {
-  state = ASSETS.map(() => ({ level: LEVEL_DEFAULT, clip: 0, off: new Set() }));
+  state = ASSETS.map(() => ({ level: LEVEL_DEFAULT, clip: 0 }));
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch (e) {}
   if (saved) {
@@ -61,7 +51,6 @@ function loadState() {
       persist();   // record the new version with default clip choices
     }
   }
-  state.forEach((st, i) => { st.off = allStems(i); });
 }
 function persist() {
   try {
@@ -78,7 +67,7 @@ let ctx = null, masterGain = null, chans = [], startTime = 0;
 let decoder = null;                 // OfflineAudioContext: decodes in the background, never plays
 const buffers = new Map();          // file -> AudioBuffer
 const inflight = new Map();         // file -> Promise<AudioBuffer>
-const ready = [];                   // per channel: Promise that its selected clip's files were fetched and decoded
+const ready = [];                   // per channel: Promise that its selected clip was fetched and decoded
 const toGain = level => level * level;   // perceptual: level 0..1 -> gain
 
 async function ensureAudio() {           // only ever reached from the play tap
@@ -118,47 +107,26 @@ async function playableBuffer(file) {    // a buffer this context refuses (decod
   catch (e) { buffers.delete(file); buf = await loadBuffer(file); }
   return buf;
 }
-function preloadChannel(i) {             // background: fetch + decode the selected clip's files, show a loading state
+function preloadChannel(i) {             // background: fetch + decode the selected clip, show a loading state
   const clip = clipOf(i);
   setLoading(i, true);
-  const p = Promise.allSettled(clipFiles(clip).map(loadBuffer)).then(async results => {
-    const failed = results.filter(r => r.status === "rejected");
-    failed.forEach(r => console.error("[load]", r.reason));
-    let broken = failed.length > 0;
-    if (broken && hasStems(clip)) {     // a stem failed: fetch the full mix it falls back to
-      try { await loadBuffer(clip.file); broken = false; }
-      catch (e) { console.error("[load] fallback", e); }
-    }
-    if (clipOf(i) === clip) setLoading(i, broken, broken);   // "failed" only when nothing of the clip can play
-    return results;
-  });
+  const p = loadBuffer(clip.file).then(
+    () => { if (clipOf(i) === clip) setLoading(i, false); },
+    e => { console.error("[load]", e); if (clipOf(i) === clip) setLoading(i, true, true); });
   ready[i] = p;
   return p;
 }
-async function makeSource(i, part, L, g) {
-  const buf = await playableBuffer(part.file);
+async function makeChannel(i) {          // one source, straight into the channel's fader: source -> g -> master
+  const clip = clipOf(i), L = loopLength(clip);
+  let buf;
+  try { buf = await playableBuffer(clip.file); }
+  catch (e) { if (clipOf(i) === clip) setLoading(i, true, true); throw e; }
+  const g = ctx.createGain(); g.gain.value = toGain(state[i].level); g.connect(masterGain);   // the fader
   const src = ctx.createBufferSource();
   src.buffer = buf;
   src.loop = true; src.loopStart = 0; src.loopEnd = L;   // the bar grid, not buf.duration
-  const sg = ctx.createGain();                           // per-source gain: a stem's on/off lives here
-  sg.gain.value = (part.id === null || !state[i].off.has(part.id)) ? part.base : 0;
-  src.connect(sg); sg.connect(g);
-  return { id: part.id, file: part.file, base: part.base, src, sg };
-}
-async function makeChannel(i) {
-  const clip = clipOf(i), L = loopLength(clip);
-  const g = ctx.createGain(); g.gain.value = toGain(state[i].level); g.connect(masterGain);   // the fader
-  let sources = null;
-  if (hasStems(clip)) {
-    const base = clip.stems_gain ?? 1;   // one trim from the pipeline so the stems sum to the library loudness
-    try { sources = await Promise.all(clip.stems.map(s => makeSource(i, { id: s.id, file: s.file, base }, L, g))); }
-    catch (e) { console.error(`[stems] ${clip.id}: ${e.message}; playing the full clip instead`); }
-  }
-  if (!sources) {                         // no stems, or a stem failed: the full mix (fetched and decoded here if needed)
-    try { sources = [await makeSource(i, { id: null, file: clip.file, base: 1 }, L, g)]; }
-    catch (e) { if (clipOf(i) === clip) setLoading(i, true, true); throw e; }
-  }
-  return { clip, L, g, sources };
+  src.connect(g);
+  return { clip, L, g, src };
 }
 async function startAll() {
   await ensureAudio();
@@ -167,20 +135,20 @@ async function startAll() {
   const built = [];
   for (let i = 0; i < ASSETS.length; i++) built.push(await makeChannel(i));   // every source exists before the start time is read
   stopAll(true);
-  const t0 = ctx.currentTime + START_LEAD;   // one shared start time for every source of every channel
+  const t0 = ctx.currentTime + START_LEAD;   // one shared start time for every channel
   startTime = t0;
-  built.forEach(c => c.sources.forEach(s => s.src.start(t0)));
+  built.forEach(c => c.src.start(t0));
   chans = built;
   playing = true; status.textContent = "";
+  updateHint();
   if (DEBUG) debugStart();
 }
 function stopAll(silent) {
-  chans.forEach(c => c.sources.forEach(s => { try { s.src.stop(); } catch (e) {} }));
+  chans.forEach(c => { try { c.src.stop(); } catch (e) {} });
   chans = [];
-  if (!silent) { playing = false; if (DEBUG) debugStop(); }
+  if (!silent) { playing = false; updateHint(); if (DEBUG) debugStop(); }
 }
 async function swapClip(i) {   // replace one channel in place, aligned to the shared bar grid
-  state[i].off = allStems(i); renderStems(i);   // a newly chosen clip starts silent, like the app itself
   preloadChannel(i);
   if (!playing) return;
   await ready[i];
@@ -189,38 +157,38 @@ async function swapClip(i) {   // replace one channel in place, aligned to the s
   const old = chans[i];
   const t = ctx.currentTime + SWAP_LEAD;
   const offset = (((t - startTime) % c.L) + c.L) % c.L;   // where this clip's loop is on the grid at time t (never negative, even before the shared start)
-  c.sources.forEach(s => s.src.start(t, offset));
-  if (old) old.sources.forEach(s => { try { s.src.stop(t); } catch (e) {} });
+  c.src.start(t, offset);
+  if (old) { try { old.src.stop(t); } catch (e) {} }
   chans[i] = c;
   if (DEBUG) debugChannel(i, t);
 }
 function setLevel(i, v) {
   state[i].level = v;
   if (chans[i]) chans[i].g.gain.setTargetAtTime(toGain(v), ctx.currentTime, RAMP);
+  updateHint();
 }
-function setStem(i, id, on) {   // gain only: the source keeps running on the grid
-  if (on) state[i].off.delete(id); else state[i].off.add(id);
-  const c = chans[i]; if (!c || !playing) return;
-  const s = c.sources.find(x => x.id === id);
-  if (s) s.sg.gain.setTargetAtTime(on ? s.base : 0, ctx.currentTime, STEM_RAMP);
+// While playing with every fader at zero nothing sounds: say how to hear something.
+const HINT = "הרימו פיידר כדי לשמוע";
+function updateHint() {
+  if (DEBUG) return;                                  // the sync self-test owns the status line
+  const silent = playing && state.every(s => Math.round(s.level * 100) === 0);   // every fader shows 0
+  if (silent) status.textContent = HINT;
+  else if (status.textContent === HINT) status.textContent = "";
 }
 
 // ---------- sync self-test (?debug=1) ----------
-// Web Audio exposes no playhead, so this reports what can be known: every source's
-// scheduled start and loopEnd, each decoded buffer's length against the grid (the
-// drift a buffer-length loop would accumulate, which explicit loopEnd removes),
-// the number of running sources, and the audio clock against the wall clock (a
-// stall shows as growing skew).
+// Web Audio exposes no playhead, so this reports what can be known: each channel's one
+// source with its scheduled start and loopEnd, its decoded buffer's length against the
+// grid (the drift a buffer-length loop would accumulate, which explicit loopEnd removes),
+// the number of running sources, and the audio clock against the wall clock (a stall
+// shows as growing skew).
 const dbg = { timer: null, wall0: 0, lastLoop: -1, maxDrift: 0 };
-const sourceCount = () => chans.reduce((n, c) => n + c.sources.length, 0);
+const sourceCount = () => chans.filter(Boolean).length;
 function debugChannel(i, t) {
-  const c = chans[i];
-  c.sources.forEach(s => {
-    const b = s.src.buffer;
-    const gridSamples = Math.round(c.L * b.sampleRate), delta = b.length - gridSamples;
-    console.log(`[sync] ch${i} ${c.clip.id}${s.id ? "/" + s.id : ""}: start ${t.toFixed(6)} s, loopEnd ${c.L.toFixed(6)} s, `
-      + `buffer ${b.length} samples @${b.sampleRate} Hz (grid ${gridSamples}, Δ ${delta >= 0 ? "+" : ""}${delta})`);
-  });
+  const c = chans[i], b = c.src.buffer;
+  const gridSamples = Math.round(c.L * b.sampleRate), delta = b.length - gridSamples;
+  console.log(`[sync] ch${i} ${c.clip.id}: start ${t.toFixed(6)} s, loopEnd ${c.L.toFixed(6)} s, `
+    + `buffer ${b.length} samples @${b.sampleRate} Hz (grid ${gridSamples}, Δ ${delta >= 0 ? "+" : ""}${delta})`);
 }
 function debugStart() {
   console.log(`[sync] start scheduled at ${startTime.toFixed(6)} s, context ${ctx.sampleRate} Hz, `
@@ -241,12 +209,12 @@ function debugTick() {
   const skewMs = ((performance.now() / 1000 - dbg.wall0) - ctx.currentTime) * 1000;
   let worst = 0;
   const rows = chans.map((c, i) => {
-    const b = c.sources[0].src.buffer;
+    const b = c.src.buffer;
     const bufLoop = b.length / b.sampleRate;
     const pos = el % c.L;                                          // playback position on the grid
     const wouldDrift = (bufLoop - c.L) * Math.floor(el / c.L) * 1000; // ms, without explicit loopEnd
     worst = Math.max(worst, Math.abs(wouldDrift));
-    return `ch${i} ${c.clip.id} (${c.sources.length} src) pos ${pos.toFixed(3)} s, bufΔ ${((bufLoop - c.L) * 1000).toFixed(3)} ms/loop, would-be ${wouldDrift.toFixed(2)} ms`;
+    return `ch${i} ${c.clip.id} pos ${pos.toFixed(3)} s, bufΔ ${((bufLoop - c.L) * 1000).toFixed(3)} ms/loop, would-be ${wouldDrift.toFixed(2)} ms`;
   });
   dbg.maxDrift = Math.max(dbg.maxDrift, worst);
   console.log(`[sync] loop ${loop} at ${el.toFixed(3)} s, ${sourceCount()} sources, clock skew ${skewMs.toFixed(1)} ms\n  ` + rows.join("\n  "));
@@ -259,15 +227,14 @@ function buildBoard() {
   ASSETS.forEach((a, i) => {
     const ch = document.createElement("div"); ch.className = "ch"; ch.style.setProperty("--c", a.color);
     const pct = Math.round(state[i].level * 100);
-    ch.innerHTML = `<div class="fader" role="slider" tabindex="0" aria-label="${a.name}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
+    ch.innerHTML = `<div class="fader" role="slider" tabindex="0" aria-label="${a.name} · ${a.instrument.name}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
         <div class="fill" style="height:${state[i].level * 100}%"></div><div class="val">${pct}</div></div>
       <button class="name" data-i="${i}">${a.name}</button>
-      <div class="pick"><span class="clip"></span><select class="song" data-i="${i}" aria-label="שיר · ${a.name}"></select></div>
-      <div class="load" aria-live="polite"></div>
-      <div class="stems" data-i="${i}" role="group" aria-label="כלים · ${a.name}"></div>`;
+      <div class="inst">${a.instrument.name}</div>
+      <div class="pick"><span class="clip"></span><select class="song" name="song-${a.id}" data-i="${i}" aria-label="שיר · ${a.name}"></select></div>
+      <div class="load" aria-live="polite"></div>`;
     board.appendChild(ch);
     renderSongs(i);
-    renderStems(i);
     const fader = ch.querySelector(".fader"), fill = ch.querySelector(".fill"), val = ch.querySelector(".val");
     const render = () => { const p = Math.round(state[i].level * 100); fill.style.height = (state[i].level * 100) + "%"; val.textContent = p; fader.setAttribute("aria-valuenow", p); };
     const fromPointer = e => { const r = fader.getBoundingClientRect(); const v = 1 - (e.clientY - r.top) / r.height; setLevel(i, Math.max(0, Math.min(1, v))); render(); };
@@ -278,8 +245,9 @@ function buildBoard() {
     fader.addEventListener("pointercancel", () => { dragging = false; persist(); });
     fader.addEventListener("keydown", e => {
       const step = e.shiftKey ? 0.1 : 0.05;
-      if (e.key === "ArrowUp") { setLevel(i, Math.min(1, state[i].level + step)); render(); persist(); e.preventDefault(); }
-      if (e.key === "ArrowDown") { setLevel(i, Math.max(0, state[i].level - step)); render(); persist(); e.preventDefault(); }
+      const to = v => Math.round(Math.max(0, Math.min(1, v)) * 100) / 100;   // whole percent: steps add up to exactly 0 and 1
+      if (e.key === "ArrowUp") { setLevel(i, to(state[i].level + step)); render(); persist(); e.preventDefault(); }
+      if (e.key === "ArrowDown") { setLevel(i, to(state[i].level - step)); render(); persist(); e.preventDefault(); }
     });
   });
 }
@@ -297,36 +265,15 @@ function renderSongs(i) {
   pick.classList.toggle("single", clips.length < 2);
   label.textContent = clipOf(i).title;
 }
-// One toggle chip per stem of the channel's selected clip; nothing for a clip without stems.
-function renderStems(i) {
-  const row = board.querySelector(`.stems[data-i="${i}"]`); if (!row) return;
-  const clip = clipOf(i);
-  row.innerHTML = "";
-  if (!hasStems(clip)) return;
-  clip.stems.forEach(s => {
-    const b = document.createElement("button");
-    b.className = "stem"; b.dataset.i = i; b.dataset.stem = s.id;
-    b.textContent = s.name;
-    b.setAttribute("aria-pressed", String(!state[i].off.has(s.id)));
-    row.appendChild(b);
-  });
-}
 function setLoading(i, on, failed) {
   const ch = board.children[i]; if (!ch) return;
   ch.classList.toggle("loading", !!on);
   const el = ch.querySelector(".load"); if (el) el.textContent = failed ? "הטעינה נכשלה" : "טוען…";
 }
 
-// stem chips and asset description
+// asset description
 const picker = document.getElementById("picker");
 board.addEventListener("click", e => {
-  const chip = e.target.closest(".stem");
-  if (chip) {
-    const on = chip.getAttribute("aria-pressed") !== "true";
-    chip.setAttribute("aria-pressed", String(on));
-    setStem(+chip.dataset.i, chip.dataset.stem, on);
-    return;
-  }
   const b = e.target.closest(".name"); if (!b) return;
   const a = ASSETS[+b.dataset.i];
   document.getElementById("pickerTitle").textContent = a.name;
@@ -358,7 +305,7 @@ playBtn.onclick = async () => {
 };
 document.getElementById("master").oninput = e => { master = e.target.value / 100; if (masterGain) masterGain.gain.setTargetAtTime(master, ctx.currentTime, RAMP); };
 
-// profile (the six levels as a shape; stems are not part of it)
+// profile (the six levels as a shape)
 const profileDlg = document.getElementById("profileDlg");
 document.getElementById("profileBtn").onclick = () => {
   document.getElementById("chart").innerHTML = IdentityProfile.radar(ASSETS, levels());
