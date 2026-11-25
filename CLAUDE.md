@@ -51,7 +51,7 @@ The order is semantic, not alphabetical. Arrays of channels, faders, radar axes 
 ```
 ~/Projects/Assets/            the repo (NOT on Desktop — Desktop is a synced folder and hangs the venv)
 ├── index.html                shell, viewport meta, dir="rtl" lang="he"
-├── app.js                    audio engine, faders, song menus, stem chips (until B5), transport
+├── app.js                    audio engine, faders, song menus, transport
 ├── profile.js                six-axis vector → SVG radar
 ├── styles.css                phone layout, RTL, touch targets
 ├── manifest.json             the library registry: version, tempo, key, bars, assets with their instrument, clips
@@ -125,10 +125,12 @@ If a file or folder you need isn't here, it probably shouldn't exist. Ask.
 - Never start channels one after another with separate `currentTime` reads. Never `start()` without the shared time.
 - Song change: the new clip's sources start in place on the shared grid at `t = ctx.currentTime + SWAP_LEAD` (0.05 s) with offset `((t − startTime) mod L)`, and the old sources stop at the same `t`. Nothing else restarts.
 - Faders drive `GainNode.gain` only, through a perceptual curve (gain = level²). Use `setTargetAtTime` with `RAMP` = 0.03; never set `.value` directly while playing — it clicks.
-- Until B5: `app.js` still has the stem code (chips as gain switches on running sources, `STEM_RAMP` = 0.02, stems starting off, the full file as a fallback). The library has no stems any more, so a clip plays its one file and no chips appear. B5 removes that code.
+- One source per channel: the selected clip's `file`, the channel's one instrument. A song change replaces that source; nothing else in the channel exists to switch.
+- Faders start at zero (`LEVEL_DEFAULT` = 0): the participant raises the instruments they want. Levels are saved under `STORAGE_KEY` and survive reloads; changing the key resets everyone's saved levels once.
+- While playing with every fader at zero, the status line says "הרימו פיידר כדי לשמוע"; it goes as soon as any fader is above zero and comes back when all are at zero again (not with `?debug=1`, whose self-test owns the status line).
 - No per-channel tempo, pitch, playbackRate or detune in the player. If someone asks for one, the answer is in `pipeline/`. The only offset is the grid offset of a song change.
 - Stop stops all sources together. Rebuild sources on the next play; `AudioBufferSourceNode`s are one-shot.
-- The graph is `source → stemGain → channelGain → master → destination` (the `stemGain` stage goes in B5). Keep it that flat.
+- The graph is `source → channelGain → master → destination`. Keep it that flat.
 - Don't add effects, analysers or compressors to the runtime graph without asking. Loudness is solved in the pipeline.
 - `?debug=1` turns on the sync self-test in the console and the status line.
 
@@ -142,7 +144,8 @@ If a file or folder you need isn't here, it probably shouldn't exist. Ask.
 - Faders are the existing custom control (`role="slider"`); don't swap it for a native range without asking.
 - Song menus are native `<select>` elements under each column, so the phone opens its own menu.
 - The radar always shows all six axes in asset order, even at zero.
-- No web fonts, no icon libraries, no CDN. System font stack; inline SVG.
+- No web fonts, no icon libraries, no CDN, no `<link>` to another origin. The only font is the system stack `system-ui, -apple-system, "Arial Hebrew", "Noto Sans Hebrew", sans-serif`; icons are inline SVG.
+- Each column shows its asset name, and under it, small and dimmed, its instrument name (`asset.instrument.name`). The fader's `aria-label` is "<asset name> · <instrument name>".
 - `styles.css` owns colours and spacing; no inline styles, no CSS-in-JS. (Exceptions already in `app.js`: the fader fill height and the `--c` asset colour variable.)
 
 ## Environment
@@ -166,7 +169,7 @@ If a file or folder you need isn't here, it probably shouldn't exist. Ask.
 2. iPhone, Safari, on the LAN URL — the real target. Sound on, silent switch off, screen not locked.
 3. After push, the public URL on the same phone — confirms paths and caching on Pages.
 
-What "passes" means: the first tap on play starts every channel on the shared grid, each instrument at its fader's level, all in time with no flam on the downbeat and no click; there are no chips; each fader brings in or takes out its one instrument and changes nothing else; choosing another song in a column swaps that instrument's part on the beat; stop is silent; play again restarts together; the radar matches the faders.
+What "passes" means: on a first visit every fader is at zero; the first tap on play starts every channel on the shared grid in silence and the status line says "הרימו פיידר כדי לשמוע"; raising any fader brings in its one instrument at once and in time with the others, with no flam on the downbeat and no click, and the hint goes; each fader changes only its instrument; choosing another song in a column swaps that instrument's part on the beat; stop is silent; play again restarts together; the radar matches the faders.
 
 iOS-specific things to check whenever `app.js` changes: first tap after a cold load, play after backgrounding and returning, play with the phone's silent switch on (should still sound — Web Audio ignores it only if the context is resumed inside a user gesture), rotate to landscape and back.
 

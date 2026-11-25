@@ -83,7 +83,7 @@ Each clip:
 | `credit` | string | Performer / origin / licence note                         |
 | `bars`   | number | Optional. Loop length override for this clip              |
 
-The player plays `file` on the channel's fader. Until B5 `app.js` still carries the code for the old `stems` field; no clip has stems.
+The player plays `file` as the channel's one source, behind its fader (`source → channelGain → master → destination`). Faders start at zero; the column shows the asset's instrument name under the asset name.
 
 Example with one asset:
 
